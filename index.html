@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EscalaPM">
+<meta name="theme-color" content="#0B1F3A">
+<title>EscalaPM</title>
+<link rel="apple-touch-icon" id="icone">
+<style>
+:root{--az:#0B1F3A;--am:#17376A;--ou:#C9A227;--fu:#F2F4F8;--su:#5B6678}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--fu);color:var(--az);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+.w{max-width:520px;margin:0 auto;padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
+header{background:linear-gradient(160deg,var(--az),var(--am));color:#fff;padding:calc(18px + env(safe-area-inset-top,0px)) 22px 28px;border-radius:0 0 40px 40px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.marca{color:var(--ou);font-weight:700;letter-spacing:.14em;font-size:15px}
+.link{background:none;border:0;color:#fff;font:inherit;font-size:16px;padding:6px 0;cursor:pointer}
+h1{font-size:24px;line-height:1.15;margin:18px 0 4px}
+.sub{opacity:.85;font-size:15px}.upd{opacity:.55;font-size:13px;margin-top:14px}
+.erro{color:#B3261E;padding:16px 22px 0;font-size:15px}.info{color:var(--su);padding:16px 22px 0;font-size:14px}
+.hoje{background:var(--az);color:#fff;margin:18px 16px 0;border-radius:28px;padding:22px}
+.hoje small{color:var(--ou);letter-spacing:.12em;font-weight:600;font-size:13px}
+.lin{display:flex;gap:16px;align-items:center;margin-top:14px}
+.cod{min-width:76px;height:76px;padding:0 8px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600}
+.lin b{font-size:19px;display:block}.lin span{opacity:.8;font-size:15px}
+.cart{background:#fff;margin:16px;border-radius:28px;padding:18px 14px}
+.mes{display:flex;justify-content:space-between;align-items:center;margin:4px 6px 14px}
+.mes b{font-size:20px;font-weight:600}.mes button{background:none;border:0;font-size:28px;color:var(--su);padding:4px 14px;cursor:pointer}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.sem{color:var(--su);font-size:14px;padding:4px 0}
+.c{border-radius:12px;padding:5px 0 7px;min-height:56px;border:0;font:inherit;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;align-items:center}
+.c i{font-style:normal;font-size:12px;opacity:.85}.c b{font-size:16px;font-weight:600;min-height:20px}
+.c.sel{outline:3px solid var(--az);outline-offset:1px}.c.ho{box-shadow:0 0 0 2px var(--ou)}
+.d{background:#DCE7FB;color:#17376A}.n{background:#1B2A4E;color:#fff}.f{background:#DDF0E3;color:#1E6B3A}.o{background:#E3E5EA;color:#444}.v{background:#F6F7FA;color:#9AA3B2}.x{visibility:hidden}
+.leg{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center;margin-top:16px;font-size:14px;color:var(--su)}
+.leg s{display:inline-block;width:14px;height:14px;border-radius:5px;vertical-align:-2px;margin-right:6px;border:1px solid #cfd5e0;text-decoration:none}
+.det h3{margin:0 0 4px;font-size:18px}.det p{margin:6px 0;color:var(--su);font-size:15px}
+.nota{background:#FFF7DB;border-radius:12px;padding:10px 12px;color:#5c4a00!important}
+.col{font-size:14px;padding:3px 0;color:var(--az)}
+button.p{width:100%;background:var(--az);color:#fff;border:0;border-radius:14px;padding:14px;font:inherit;font-weight:600;margin-top:10px;cursor:pointer}
+button.s{background:#fff;color:var(--az);border:1.5px solid var(--az)}
+input{width:100%;font:inherit;font-size:20px;padding:14px;border-radius:14px;border:1.5px solid #c8cfdb;margin-top:12px;letter-spacing:.06em}
+.aj p{font-size:14px;color:var(--su);margin:8px 0}.aj h4{margin:14px 0 2px}
+</style>
+</head>
+<body><div class="w" id="app"></div>
+<script>
+// ===== CONFIGURAÇÃO =====
+const PLANILHA_ID="1qY6dfCt804Lwih-8Q44Po1nxcuBfHcndQKSp74e7MAQ";
+const CHAVE_API="AIzaSyCI-vebKL9GUe7ubcAFf3Iu0LaX_I7uqzI"; // troque por uma chave restrita ao seu site (veja as instruções)
+const WHATSAPP="5532991533066";
+const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1],["LAMIM","Lamim",["LAMIM"],1],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0]].map(([k,n,a,c])=>({k,n,a,c}));
+const FOLGAS=["FO","RC"],AFAST=["FA","LM","FD","FP","DD","TR","CS"];
+const RH=/(\d{1,2})\s*(?:H|:)?\s*(\d{2})?\s*(?:MIN)?\s*(?:AS|ÀS|À|-|–)\s*\d/i;
+
+// ===== TEXTO =====
+const norm=t=>(t||"").normalize("NFD").replace(/\p{M}+/gu,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim();
+const esc=t=>(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cidades=t=>{const s=" "+norm(t)+" ";return CID.filter(c=>c.a.some(a=>s.includes(" "+a+" ")))};
+const MN=MESES.map(norm);
+function mesTxt(t){for(const tk of norm(t).split(" "))for(let i=0;i<12;i++){const c=MN[i],a=c.slice(0,3);if(tk===c||tk===a)return i+1;if(tk.length>3&&tk.startsWith(a)&&/^\d+$/.test(tk.slice(3)))return i+1}return null}
+const anoTxt=t=>{const m=/(20\d{2})/.exec(t);return m?+m[1]:null};
+const ehCodigo=t=>/^[A-Z]{1,4}\d{0,3}$/.test((t||"").trim().toUpperCase());
+const limpar=t=>(t||"").trim().replace(/\s+/g," ");
+const fmtPm=p=>p.length===7?`${p.slice(0,3)}.${p.slice(3,6)}-${p[6]}`:p;
+const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
+const p2=n=>String(n).padStart(2,"0");
+
+function elegivel(t){if(!cidades(t).length)return false;const n=" "+norm(t)+" ";return!["COPIA","NAO VALIDA","MOV"].some(x=>n.includes(" "+x+" "))}
+function recente(t){ // ignora abas antigas pelo título (só para baixar menos dados)
+  const m=mesTxt(t);if(!m)return true;let y=anoTxt(t);
+  if(!y){const k=/(?:^| |[A-Z])(2[4-9])(?!\d)/.exec(norm(t));if(k)y=2000+ +k[1]}
+  if(!y)return true;const h=new Date();return y*12+m>=h.getFullYear()*12+h.getMonth()+1-3}
+
+// ===== LEITURA DAS ABAS =====
+function grade(s){const g=[],notas={};for(const b of s.data||[])(b.rowData||[]).forEach((r,i)=>{const l=[];(r.values||[]).forEach((c,j)=>{l[j]=(c.formattedValue||"").trim();if(c.note)notas[i+","+j]=c.note.trim()});g[(b.startRow||0)+i]=l});return{g:Array.from(g,r=>r||[]),notas}}
+
+function interpretar(g,nome,notas){
+  const idx=g.findIndex(l=>l.some(x=>norm(x)==="N PM"));if(idx<0)return null;
+  const cab=g[idx],f=n=>cab.findIndex(x=>norm(x)===n);
+  const cPm=f("N PM"),cG=f("P G"),cN=f("MILITAR");if(cPm<0||cG<0||cN<0)return null;
+  let c1=-1,ld=-1;
+  for(const k of [idx-1,idx,idx-2,idx+1]){const l=g[k];if(!l)continue;
+    for(let j=cN+1;j<l.length-1;j++)if((l[j]||"").trim()==="1"&&(l[j+1]||"").trim()==="2"){c1=j;break}
+    if(c1>=0){ld=k;break}}
+  if(c1<0)return null;
+  let nd=0;while(c1+nd<g[ld].length&&(g[ld][c1+nd]||"").trim()===String(nd+1))nd++;
+  let tit="";for(let i=0;i<idx&&!tit;i++)for(const c of g[i])if(!tit&&norm(c).includes("ESCALA"))tit=c;
+  const mes=mesTxt(tit)||mesTxt(nome);if(!mes)return null;
+  const ano=anoTxt(tit)||anoTxt(nome)||new Date().getFullYear();
+  nd=Math.min(nd,new Date(ano,mes,0).getDate());if(nd<28)return null;
+  let cs=cidades(nome);if(cs.length!==1){const t=cidades(tit);if(t.length===1)cs=t}
+  const previa=norm(nome).split(" ").includes("PREVIA");
+  const mil=[];let iLeg=g.length;
+  for(let i=idx+1;i<g.length;i++){const l=g[i];
+    if(l.some(x=>norm(x)==="LEGENDA")){iLeg=i;break}
+    const pm=(l[cPm]||"").replace(/\D/g,"");
+    if(pm.length>=6)mil.push({pm,grad:limpar(l[cG]),nome:limpar(l[cN]),dias:Array.from({length:nd},(_,k)=>(l[c1+k]||"").trim()),linha:i});
+    else if(ehCodigo(l[cG])&&(l[cN]||"").trim()){iLeg=i-1;break}}
+  const leg={},cat={};let inv=0;
+  for(let i=iLeg+1;i<g.length;i++){const l=g[i],c=(l[cG]||"").trim().toUpperCase();
+    if(ehCodigo(c)){inv=0;leg[c]=(l[cN]||"").trim();const k=cG>=1?(l[cG-1]||"").trim():"";if(["DIA","NOITE","NEUTRO"].includes(norm(k)))cat[c]=k}
+    else if(++inv>=3)break}
+  return{cid:cs[0]||null,ano,mes,previa,nome,mil,leg,cat,c1,notas}
+}
+
+const dias=(a,m)=>{let mk=null;return m.dias.map(c=>{if(!c)return["",mk];const u=c.toUpperCase();if(u in a.leg){mk=null;return[u,null]}const ci=cidades(c)[0];if(ci){mk=ci;return["",ci]}mk=null;return[u,null]})};
+
+function montar(abas,pm){
+  const cp=abas.map(a=>[a,a.mil.find(m=>m.pm===pm)]).filter(p=>p[1]);if(!cp.length)return null;
+  const cheios=p=>dias(...p).filter(x=>x[0]).length;
+  const prin=cp.reduce((b,p)=>cheios(p)>cheios(b)?p:b);
+  const[aP,mP]=prin,base=dias(aP,mP),leg={...aP.leg},cat={...aP.cat};
+  const nota=(a,m,i)=>a.notas[m.linha+","+(a.c1+i)]||"";
+  const out=base.map(([cod,mk],i)=>{
+    if(!mk)return{c:cod,o:"",n:nota(aP,mP,i)};
+    const alvo=cp.find(p=>p[0]!==aP&&p[0].cid&&p[0].cid.k===mk.k);
+    const c2=alvo?(dias(...alvo)[i]||[""])[0]:"";
+    if(!c2)return{c:"",o:mk.n,n:""};
+    if(alvo[0].leg[c2]&&!(c2 in leg))leg[c2]=alvo[0].leg[c2];
+    if(alvo[0].cat[c2]&&!(c2 in cat))cat[c2]=alvo[0].cat[c2];
+    return{c:c2,o:mk.n,n:nota(alvo[0],alvo[1],i)}});
+  return{ano:aP.ano,mes:aP.mes,grad:mP.grad,nome:mP.nome,cidade:aP.cid?aP.cid.n:"",dias:out,leg,cat,previa:aP.previa,
+    col:aP.cid&&aP.cid.c?aP.mil.map(m=>({n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:m.pm===pm})):[]};
+}
+
+function escolher(lidas){const gr={};for(const a of lidas)(gr[`${a.cid&&a.cid.k}-${a.ano}-${a.mes}`]??=[]).push(a);
+  const nota=a=>{const n=" "+norm(a.nome)+" ";return n.includes(" ANTIGA ")?0:n.includes(" ATUALIZ")?2:1};
+  return Object.values(gr).map(g=>g.reduce((b,a)=>nota(a)>nota(b)?a:b))}
+
+async function api(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+async function baixar(pm){
+  const base=`https://sheets.googleapis.com/v4/spreadsheets/${PLANILHA_ID}`;
+  const abas=(await api(`${base}?fields=sheets.properties(title,hidden)&key=${CHAVE_API}`)).sheets.map(s=>s.properties)
+    .filter(p=>!p.hidden&&elegivel(p.title)&&recente(p.title)).map(p=>p.title);
+  const lotes=[];for(let i=0;i<abas.length;i+=6)lotes.push(abas.slice(i,i+6));
+  const campos=encodeURIComponent("sheets(properties(title),data(startRow,startColumn,rowData(values(formattedValue,note))))");
+  const res=await Promise.all(lotes.map(l=>api(`${base}?`+l.map(t=>"ranges="+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:AZ150`)).join("&")+`&fields=${campos}&key=${CHAVE_API}`)));
+  const folhas=res.flatMap(r=>r.sheets||[]).sort((a,b)=>abas.indexOf(a.properties.title)-abas.indexOf(b.properties.title));
+  const lidas=[];for(const s of folhas){try{const{g,notas}=grade(s);const a=interpretar(g,s.properties.title,notas);if(a)lidas.push(a)}catch(e){}}
+  const porMes={};for(const a of escolher(lidas))(porMes[a.ano*100+a.mes]??=[]).push(a);
+  const novos={};for(const k in porMes){const m=montar(porMes[k],pm);if(m)novos[k]=m}
+  return novos}
+
+// ===== TIPOS =====
+function tipo(m,c){c=(c||"").trim().toUpperCase();if(!c)return"v";if(FOLGAS.includes(c))return"f";if(c==="PSO"||AFAST.includes(c))return"o";
+  const k=norm(m.cat[c]||"");if(k==="NOITE")return"n";if(k==="NEUTRO")return"o";if(k==="DIA")return"d";
+  const h=parseInt((RH.exec(m.leg[c]||"")||[])[1]);return!isNaN(h)&&(h>=17||h<5)?"n":"d"}
+const tipoDia=(m,d)=>d.c?tipo(m,d.c):d.o?"o":"v";
+const FIXO={FO:"FOLGA",RC:"Reposição de carga horária",PSO:"Consulta médica obrigatória (PSOPM)"};
+const descr=(m,c)=>FIXO[c]&&!m.leg[c]?FIXO[c]:(c==="PSO"?FIXO.PSO:m.leg[c]||"");
+
+// ===== ESTADO =====
+const ler=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
+const gravar=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const S={pm:ler("pm",""),meses:ler("meses",{}),ult:ler("ult",0),msg:"",erro:"",carregando:false,aj:false,vis:null,sel:null};
+
+async function atualizar(){
+  if(!S.pm||S.carregando)return;
+  S.carregando=true;S.msg="Atualizando…";S.erro="";desenhar();
+  try{
+    const novos=await baixar(S.pm);
+    if(!Object.keys(novos).length)S.erro="Seu número PM não foi encontrado nas escalas atuais.";
+    else{S.meses={...S.meses,...novos};S.ult=Date.now();gravar("meses",S.meses);gravar("ult",S.ult)}
+  }catch(e){S.erro="Não consegui atualizar ("+e.message+"). Mostrando os dados salvos."}
+  S.carregando=false;S.msg="";desenhar()}
+
+// ===== TELA =====
+const hoje=()=>new Date();
+const chaves=()=>Object.keys(S.meses).map(Number).sort();
+function limites(){const k=chaves(),h=hoje(),ini=k.length?k[0]:h.getFullYear()*100+h.getMonth()+1;
+  const a=new Date(h.getFullYear(),h.getMonth()+12,1),fim=Math.max(k.length?k[k.length-1]:0,a.getFullYear()*100+a.getMonth()+1);return[ini,fim]}
+function mover(d){let y=Math.floor(S.vis/100),m=S.vis%100+d;if(m>12){m=1;y++}if(m<1){m=12;y--}
+  const[i,f]=limites(),k=y*100+m;if(k<i||k>f)return;S.vis=k;S.sel=null;desenhar()}
+function escolherDia(d){S.sel=d;desenhar()}
+function entrar(){const v=document.getElementById("pm").value.replace(/\D/g,"");
+  if(v.length<6||v.length>7){S.erro="Digite o número PM com 7 dígitos.";desenhar();return}
+  S.pm=v;S.meses={};S.erro="";gravar("pm",v);gravar("meses",{});atualizar()}
+function trocar(){if(!confirm("Alterar militar? Você voltará à tela inicial."))return;S.pm="";S.meses={};S.aj=false;S.erro="";gravar("pm","");gravar("meses",{});desenhar()}
+function ajustes(){S.aj=!S.aj;desenhar();if(S.aj)scrollTo(0,0)}
+
+function desenhar(){
+  const A=document.getElementById("app");
+  if(!S.pm){A.innerHTML=`<header><div class="marca">ESCALAPM</div><h1>Qual é o seu número PM?</h1><div class="sub">Digite os 7 dígitos para ver a sua escala.</div></header>
+    ${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}
+    <div class="cart"><input id="pm" inputmode="numeric" placeholder="1849132" maxlength="9" autocomplete="off"><button class="p" onclick="entrar()">Ver minha escala</button>
+    <p class="info" style="padding:12px 0 0">Aplicativo não oficial. Confira sempre a escala original.</p></div>`;return}
+  const k=chaves(),h=hoje(),kh=h.getFullYear()*100+h.getMonth()+1;
+  if(S.vis==null)S.vis=k.length?(k.filter(x=>x<=kh).pop()||k[0]):kh;
+  const ult=k.length?S.meses[k[k.length-1]]:null;
+  const y=Math.floor(S.vis/100),mo=S.vis%100,M=S.meses[S.vis],nd=new Date(y,mo,0).getDate();
+  if(S.sel==null)S.sel=(S.vis===kh)?h.getDate():1;
+  const dt=d=>{const x=new Date(y,mo-1,d);return`${cap(DIAS[x.getDay()])}, ${d} de ${MESES[mo-1].toLowerCase()}`};
+  const upd=S.ult?new Date(S.ult):null;
+  // turno de hoje
+  const Mh=S.meses[kh],dh=Mh&&Mh.dias[h.getDate()-1];
+  const cardHoje=()=>{const t=dh?tipoDia(Mh,dh):"v",c=dh?(dh.c||(dh.o?"—":"—")):"—";
+    return`<div class="hoje"><small>TURNO DE HOJE</small><div class="lin"><div class="cod ${t}">${esc(c)}</div><div><b>${cap(DIAS[h.getDay()])}, ${h.getDate()} de ${MESES[h.getMonth()].toLowerCase()}</b><span>${dh&&dh.c?esc(descr(Mh,dh.c)):dh&&dh.o?"Cedido para "+esc(dh.o):"Sem escala publicada"}</span></div></div></div>`};
+  // grade do mês
+  let cel="";const off=new Date(y,mo-1,1).getDay();
+  for(let i=0;i<off;i++)cel+=`<div class="c x"></div>`;
+  for(let d=1;d<=nd;d++){const dia=M&&M.dias[d-1],t=dia?tipoDia(M,dia):"v";
+    cel+=`<button class="c ${t}${d===S.sel?" sel":""}${S.vis===kh&&d===h.getDate()?" ho":""}" onclick="escolherDia(${d})"><i>${d}${dia&&dia.n?" •":""}</i><b>${dia?esc(dia.c):""}</b></button>`}
+  // detalhe do dia
+  let det="";const dd=M&&M.dias[S.sel-1];
+  if(!M)det=`<p>${S.vis<kh?"Sem escala salva":"Escala ainda não publicada"} para ${MESES[mo-1]}.</p>`;
+  else{det=`<h3>${dt(S.sel)}</h3>`;
+    if(dd&&dd.c){det+=`<p><b style="color:var(--az)">${esc(dd.c)}</b> — ${esc(descr(M,dd.c))||"sem descrição"}${dd.o?` (em ${esc(dd.o)})`:""}</p>`;
+      if(dd.n)det+=`<p class="nota">${esc(dd.n).replace(/\n/g,"<br>")}</p>`;
+      const t=tipo(M,dd.c);
+      if(t==="d"||t==="n"||t==="o"&&!AFAST.includes(dd.c)&&dd.c!=="PSO"){
+        const mesmos=(M.col||[]).filter(p=>!p.eu&&p.c[S.sel-1]===dd.c);
+        if(mesmos.length)det+=`<p>No mesmo turno:</p>`+mesmos.map(p=>`<div class="col">${esc(p.g)} ${esc(p.n)}</div>`).join("")}}
+    else det+=`<p>${dd&&dd.o?"Cedido para "+esc(dd.o):"Sem escala neste dia."}</p>`}
+  const painel=`<div class="cart aj"><b style="font-size:20px">Ajustes</b>
+    <button class="p" ${S.carregando?"disabled":""} onclick="ajustes();atualizar()">Atualizar agora</button>
+    <button class="p s" onclick="trocar()">Alterar militar</button>
+    <h4>Instalar no iPhone</h4><p>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p>
+    <h4>Instalar no Android</h4><p>No Chrome, abra o menu (⋮) e toque em “Instalar app” ou “Adicionar à tela inicial”.</p>
+    <a href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener"><button class="p s">Falar com o desenvolvedor (WhatsApp)</button></a>
+    <p>Aplicativo não oficial. Confira sempre a escala original.</p></div>`;
+  A.innerHTML=`<header><div class="top"><div class="marca">ESCALAPM</div><button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button></div>
+    <h1>${esc(ult?ult.nome:"Carregando…")}</h1><div class="sub">${esc(ult?ult.grad+" · ":"")}PM ${fmtPm(S.pm)}</div>
+    ${ult&&ult.cidade?`<div class="sub" style="margin-top:6px">${esc(ult.cidade)}</div>`:""}
+    <div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div></header>
+    ${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}
+    ${S.aj?painel:`${cardHoje()}
+    <div class="cart"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}${M&&M.previa?" (prévia)":""}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>
+    <div class="g">${["D","S","T","Q","Q","S","S"].map(x=>`<div class="sem">${x}</div>`).join("")}${cel}</div>
+    <div class="leg"><span><s class="d"></s>Dia</span><span><s class="n"></s>Noite</span><span><s class="f"></s>Folga</span><span><s class="o"></s>Outros</span><span>• nota</span></div></div>
+    <div class="cart det">${det}</div>`}`}
+
+// ===== INÍCIO =====
+(function(){const c=document.createElement("canvas");c.width=c.height=180;const x=c.getContext("2d");
+  x.fillStyle="#0B1F3A";x.fillRect(0,0,180,180);x.fillStyle="#C9A227";x.font="bold 76px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("PM",90,92);
+  document.getElementById("icone").href=c.toDataURL("image/png")})();
+desenhar();atualizar();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-S.ult>10*60*1000)atualizar()});
+</script>
+</body>
+</html>
