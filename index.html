@@ -81,6 +81,15 @@ input{width:100%;font:inherit;font-size:20px;padding:14px;border-radius:14px;bor
   .full-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);gap:22px;align-items:start;max-width:1050px;margin:22px auto}
   .full-layout .roster,.full-layout .cart{margin:0}
 }
+
+.mod{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.mod>div{background:#fff;color:var(--az);border-radius:24px;padding:22px;max-width:480px;width:100%;max-height:82vh;overflow:auto}
+.mod h3{margin:0 0 4px;font-size:19px}.sub2{color:var(--su);font-size:14px;margin:2px 0 10px}
+.mod hr{border:0;border-top:1px solid #dde2ec;margin:12px 0}
+.op div{font-size:14px;margin:2px 0}.op .t{font-size:15px;font-weight:700}.op .ob{font-size:13px;color:var(--su)}
+.spin{width:30px;height:30px;border:4px solid #dde2ec;border-top-color:var(--az);border-radius:50%;animation:gira .8s linear infinite;margin:8px 0}
+@keyframes gira{to{transform:rotate(360deg)}}
+button.po{width:100%;background:transparent;color:#fff;border:1.5px solid #ffffffaa;border-radius:14px;padding:12px;font:inherit;font-weight:600;margin-top:14px;cursor:pointer}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -91,7 +100,7 @@ const CHAVE_API="AIzaSyCI-vebKL9GUe7ubcAFf3Iu0LaX_I7uqzI"; // troque por uma cha
 const WHATSAPP="5532991533066";
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
-const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1],["LAMIM","Lamim",["LAMIM"],1],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0]].map(([k,n,a,c])=>({k,n,a,c}));
+const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1,"ITA"],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1,"CAN"],["LAMIM","Lamim",["LAMIM"],1,"LAM"],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1,"RIO"],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0,"OB"]].map(([k,n,a,c,s])=>({k,n,a,c,s}));
 const FOLGAS=["FO","RC"],AFAST=["FA","LM","FD","FP","DD","TR","CS"];
 const RH=/(\d{1,2})\s*(?:H|:)?\s*(\d{2})?\s*(?:MIN)?\s*(?:AS|ÀS|À|-|–)\s*\d/i;
 
@@ -146,7 +155,7 @@ function interpretar(g,nome,notas){
   return{cid:cs[0]||null,ano,mes,previa,nome,mil,leg,cat,c1,notas}
 }
 
-const dias=(a,m)=>{let mk=null;return m.dias.map(c=>{if(!c)return["",mk];const u=c.toUpperCase();if(u in a.leg){mk=null;return[u,null]}const ci=cidades(c)[0];if(ci){mk=ci;return["",ci]}mk=null;return[u,null]})};
+const dias=(a,m)=>{let mk=null;return m.dias.map(c=>{if(!c)return["",mk];const u=c.toUpperCase();if(u in a.leg){mk=null;return[u,null]}const ci=cidades(c)[0]||CID.find(x=>x.s===norm(c));if(ci){mk=ci;return["",ci]}mk=null;return[u,null]})};
 
 function montar(abas,pm){
   const cp=abas.map(a=>[a,a.mil.find(m=>m.pm===pm)]).filter(p=>p[1]);if(!cp.length)return null;
@@ -166,20 +175,23 @@ function montar(abas,pm){
     col:aP.cid&&aP.cid.c?aP.mil.map(m=>({n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:m.pm===pm})):[]};
 }
 
+function montarCidade(a){return{ano:a.ano,mes:a.mes,grad:"",nome:"",cidade:a.cid.n,dias:[],leg:a.leg,cat:a.cat,previa:a.previa,
+  col:a.mil.map(m=>({n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:false}))}}
 function escolher(lidas){const gr={};for(const a of lidas)(gr[`${a.cid&&a.cid.k}-${a.ano}-${a.mes}`]??=[]).push(a);
   const nota=a=>{const n=" "+norm(a.nome)+" ";return n.includes(" ANTIGA ")?0:n.includes(" ATUALIZ")?2:1};
   return Object.values(gr).map(g=>g.reduce((b,a)=>nota(a)>nota(b)?a:b))}
 
 async function api(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
-async function baixar(pm){
+async function baixar(pm,cidK){
   const base=`https://sheets.googleapis.com/v4/spreadsheets/${PLANILHA_ID}`;
   const abas=(await api(`${base}?fields=sheets.properties(title,hidden)&key=${CHAVE_API}`)).sheets.map(s=>s.properties)
-    .filter(p=>!p.hidden&&elegivel(p.title)&&recente(p.title)).map(p=>p.title);
+    .filter(p=>!p.hidden&&elegivel(p.title)&&recente(p.title)&&(!cidK||cidades(p.title).some(c=>c.k===cidK))).map(p=>p.title);
   const lotes=[];for(let i=0;i<abas.length;i+=6)lotes.push(abas.slice(i,i+6));
   const campos=encodeURIComponent("sheets(properties(title),data(startRow,startColumn,rowData(values(formattedValue,note))))");
   const res=await Promise.all(lotes.map(l=>api(`${base}?`+l.map(t=>"ranges="+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:AZ150`)).join("&")+`&fields=${campos}&key=${CHAVE_API}`)));
   const folhas=res.flatMap(r=>r.sheets||[]).sort((a,b)=>abas.indexOf(a.properties.title)-abas.indexOf(b.properties.title));
   const lidas=[];for(const s of folhas){try{const{g,notas}=grade(s);const a=interpretar(g,s.properties.title,notas);if(a)lidas.push(a)}catch(e){}}
+  if(cidK){const nv={};for(const a of escolher(lidas))if(a.cid&&a.cid.k===cidK)nv[a.ano*100+a.mes]=montarCidade(a);return nv}
   const porMes={};for(const a of escolher(lidas))(porMes[a.ano*100+a.mes]??=[]).push(a);
   const novos={};for(const k in porMes){const m=montar(porMes[k],pm);if(m)novos[k]=m}
   return novos}
@@ -188,6 +200,8 @@ async function baixar(pm){
 function tipo(m,c){c=(c||"").trim().toUpperCase();if(!c)return"v";if(FOLGAS.includes(c))return"f";if(c==="PSO"||AFAST.includes(c))return"o";
   const k=norm(m.cat[c]||"");if(k==="NOITE")return"n";if(k==="NEUTRO")return"o";if(k==="DIA")return"d";
   const h=parseInt((RH.exec(m.leg[c]||"")||[])[1]);return!isNaN(h)&&(h>=17||h<5)?"n":"d"}
+// turno de verdade = código que existe na legenda da escala (e é de dia ou de noite); sigla de cidade, FO, FA etc. não contam
+const ehTurno=(m,c)=>{c=(c||"").trim().toUpperCase();return!!c&&!!(m.leg[c]||m.cat[c])&&["d","n"].includes(tipo(m,c))};
 const tipoDia=(m,d)=>d.c?tipo(m,d.c):d.o?"o":"v";
 const FIXO={FO:"FOLGA",RC:"Reposição de carga horária",PSO:"Consulta médica obrigatória (PSOPM)"};
 const descr=(m,c)=>FIXO[c]&&!m.leg[c]?FIXO[c]:(c==="PSO"?FIXO.PSO:m.leg[c]||"");
@@ -195,14 +209,14 @@ const descr=(m,c)=>FIXO[c]&&!m.leg[c]?FIXO[c]:(c==="PSO"?FIXO.PSO:m.leg[c]||"");
 // ===== ESTADO =====
 const ler=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
 const gravar=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-const S={pm:ler("pm",""),meses:ler("meses",{}),ult:ler("ult",0),msg:"",erro:"",carregando:false,aj:false,full:false,vis:null,sel:null};
+const S={pm:ler("pm",""),cid:ler("cid",""),op:null,ent:"",meses:ler("meses",{}),ult:ler("ult",0),msg:"",erro:"",carregando:false,aj:false,full:false,vis:null,sel:null};
 
 async function atualizar(){
-  if(!S.pm||S.carregando)return;
+  if((!S.pm&&!S.cid)||S.carregando)return;
   S.carregando=true;S.msg="Atualizando…";S.erro="";desenhar();
   try{
-    const novos=await baixar(S.pm);
-    if(!Object.keys(novos).length)S.erro="Seu número PM não foi encontrado nas escalas atuais.";
+    const novos=await baixar(S.pm,S.cid);
+    if(!Object.keys(novos).length)S.erro=S.cid?"Não encontrei a escala desta cidade nas planilhas atuais.":"Seu número PM não foi encontrado nas escalas atuais.";
     else{S.meses={...S.meses,...novos};S.ult=Date.now();gravar("meses",S.meses);gravar("ult",S.ult)}
   }catch(e){S.erro="Não consegui atualizar ("+e.message+"). Mostrando os dados salvos."}
   S.carregando=false;S.msg="";desenhar()}
@@ -215,16 +229,30 @@ function limites(){const k=chaves(),h=hoje(),ini=k.length?k[0]:h.getFullYear()*1
 function mover(d){let y=Math.floor(S.vis/100),m=S.vis%100+d;if(m>12){m=1;y++}if(m<1){m=12;y--}
   const[i,f]=limites(),k=y*100+m;if(k<i||k>f)return;S.vis=k;S.sel=null;desenhar()}
 function escolherDia(d){S.sel=d;desenhar()}
-function entrar(){const v=document.getElementById("pm").value.replace(/\D/g,"");
-  if(v.length<6||v.length>7){S.erro="Digite o número PM com 7 dígitos.";desenhar();return}
-  S.pm=v;S.meses={};S.erro="";gravar("pm",v);gravar("meses",{});atualizar()}
-function trocar(){if(!confirm("Alterar militar? Você voltará à tela inicial."))return;S.pm="";S.meses={};S.aj=false;S.erro="";gravar("pm","");gravar("meses",{});desenhar()}
+function achaCidade(t){const n=norm(t);if(!n)return null;
+  let r=CID.find(c=>norm(c.n)===n||c.s===n||c.a.includes(n));
+  if(!r&&n.length>=3){const l=CID.filter(c=>norm(c.n).startsWith(n)||c.a.some(x=>x.startsWith(n)));if(l.length===1)r=l[0]}
+  return r||null}
+function entrar(){
+  const bruto=document.getElementById("pm").value.trim();S.ent=bruto;
+  if(/[A-Za-zÀ-ÿ]/.test(bruto)){
+    const c=achaCidade(bruto);
+    if(!c){S.erro="Cidade não encontrada. Digite o número PM ou uma destas cidades: "+CID.filter(x=>x.c).map(x=>x.n).join(", ")+".";desenhar();return}
+    if(!c.c){S.erro="A escala completa de "+c.n+" não está disponível.";desenhar();return}
+    S.cid=c.k;S.pm="";gravar("cid",c.k);gravar("pm","")}
+  else{
+    const v=bruto.replace(/\D/g,"");
+    if(v.length<6||v.length>7){S.erro="Digite o número PM com 7 dígitos ou o nome da cidade.";desenhar();return}
+    S.pm=v;S.cid="";gravar("pm",v);gravar("cid","")}
+  S.meses={};S.erro="";S.vis=null;S.sel=null;S.full=false;S.ent="";gravar("meses",{});atualizar()}
+function trocar(){if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
+  S.pm="";S.cid="";S.meses={};S.aj=false;S.full=false;S.op=null;S.vis=null;S.sel=null;S.erro="";S.ent="";gravar("pm","");gravar("cid","");gravar("meses",{});desenhar()}
 function ajustes(){S.aj=!S.aj;desenhar();if(S.aj)scrollTo(0,0)}
 
 function proximoTurno(){
   const agora=new Date();agora.setHours(0,0,0,0);const datas=[];
   for(const chave of chaves()){const m=S.meses[chave];if(!m)continue;const ano=Math.floor(chave/100),mes=chave%100;
-    m.dias.forEach((d,i)=>{const data=new Date(ano,mes-1,i+1);if(data>=agora&&d&&d.c&&["d","n"].includes(tipo(m,d.c)))datas.push({data,m,d,i})})}
+    m.dias.forEach((d,i)=>{const data=new Date(ano,mes-1,i+1);if(data>=agora&&d&&d.c&&ehTurno(m,d.c))datas.push({data,m,d,i})})}
   datas.sort((a,b)=>a.data-b.data);return datas[0]||null;
 }
 function textoHorario(m,c){return descr(m,c)||"Horário não informado"}
@@ -243,14 +271,16 @@ function calendario(M,y,mo,nd,selecionado,completo=false){
 }
 function escalaDoDia(M,indice){
   if(!M)return `<p>Escala não publicada para este mês.</p>`;const grupos={};
-  (M.col||[]).forEach(p=>{const c=(p.c[indice]||"").trim().toUpperCase();if(!c||!["d","n"].includes(tipo(M,c)))return;(grupos[c]??=[]).push(p)});
-  const cods=Object.keys(grupos);if(!cods.length)return `<p>Não há turno de serviço identificado neste dia.</p>`;
+  (M.col||[]).forEach(p=>{const c=(p.c[indice]||"").trim().toUpperCase();if(!ehTurno(M,c))return;(grupos[c]??=[]).push(p)});
+  const ini=c=>{const f=faixaMin(descr(M,c));return f?f[0]:1e4};
+  const cods=Object.keys(grupos).sort((a,b)=>(tipo(M,a)==="n")-(tipo(M,b)==="n")||ini(a)-ini(b)||a.localeCompare(b));
+  if(!cods.length)return `<p>Não há turno de serviço identificado neste dia.</p>`;
   return cods.map(c=>`<div class="turno"><div class="turnohead"><div class="cod ${tipo(M,c)}">${esc(c)}</div><span>${esc(textoHorario(M,c))}</span></div>`+
     grupos[c].map(p=>`<div class="militar ${p.eu?"eu":""}">${esc(p.g)} ${esc(p.n)}${p.eu?" (você)":""}</div>`).join("")+`</div>`).join("");
 }
-function desenhar(){
+function desenharBase(){
   const A=document.getElementById("app");
-  if(!S.pm){A.innerHTML=`<header><div class="marca">ESCALAPM</div><h1>Qual é o seu número PM?</h1><div class="sub">Digite seu número PM sem pontos ou traços.</div></header>${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}<div class="cart"><input id="pm" inputmode="numeric" placeholder="Digite seu número PM sem pontos ou traços" maxlength="9" autocomplete="new-password" name="numero-pm"><button class="p" onclick="entrar()">Ver minha escala</button><p class="info" style="padding:12px 0 0">Aplicativo não oficial. Confira sempre a escala original.</p></div>`;return}
+  if(!S.pm&&!S.cid){A.innerHTML=`<header><div class="marca">ESCALAPM</div><h1>Qual é o seu número PM?</h1><div class="sub">Digite seu número PM sem pontos ou traços. Para ver só a escala completa de uma cidade, digite o nome dela.</div></header>${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}<div class="cart"><input id="pm" type="text" inputmode="text" placeholder="Número PM ou nome da cidade" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" name="numero-pm" value="${esc(S.ent)}" onkeydown="if(event.key==='Enter')entrar()"><button class="p" onclick="entrar()">Ver escala</button><p class="info" style="padding:12px 0 0">Aplicativo não oficial. Confira sempre a escala original.</p></div>`;return}
   const k=chaves(),h=hoje(),kh=h.getFullYear()*100+h.getMonth()+1;if(S.vis==null)S.vis=k.length?(k.filter(x=>x<=kh).pop()||k[0]):kh;
   const ult=k.length?S.meses[k[k.length-1]]:null,y=Math.floor(S.vis/100),mo=S.vis%100,M=S.meses[S.vis],nd=new Date(y,mo,0).getDate();
   if(S.sel==null)S.sel=(S.vis===kh)?h.getDate():1;
@@ -267,15 +297,24 @@ function desenhar(){
       if(mesmos.length)detalhes+=`<p class="colegas-titulo">No mesmo turno:</p>`+mesmos.map(p=>`<div class="col">${esc(p.g)} ${esc(p.n)}</div>`).join("");
     }
   }else detalhes=`<p>${dd&&dd.o?"Cedido para "+esc(dd.o):"Sem escala neste dia."}</p>`;
-  const cardSelecionado=`<div class="hoje"><small>SERVIÇO DO DIA</small><div class="lin"><div class="cod ${t}">${esc(c)}</div><div><b>${dt(S.sel)}</b><span>${dd&&dd.c?esc(descr(Md,dd.c)):dd&&dd.o?"Cedido para "+esc(dd.o):"Sem escala publicada"}</span></div></div><div class="dia-detalhes"><h3>Detalhes do dia</h3>${detalhes}</div></div>`;
+  const cidT=dd&&dd.c&&Md?CID.find(x=>x.n===(dd.o||Md.cidade)):null;
+  const btnOps=cidT&&cidT.c&&ehTurno(Md,dd.c)?`<button class="po" onclick="abrirOps('t','${cidT.k}',${S.sel},'${esc(dd.c)}')">Verificar operações</button>`:"";
+  const cardSelecionado=`<div class="hoje"><small>SERVIÇO DO DIA</small><div class="lin"><div class="cod ${t}">${esc(c)}</div><div><b>${dt(S.sel)}</b><span>${dd&&dd.c?esc(descr(Md,dd.c)):dd&&dd.o?"Cedido para "+esc(dd.o):"Sem escala publicada"}</span></div></div><div class="dia-detalhes"><h3>Detalhes do dia</h3>${detalhes}</div>${btnOps}</div>`;
   const painel=`<div class="cart aj"><b style="font-size:20px">Ajustes</b><button class="p s" onclick="trocar()">Alterar militar</button>
     <h4>Instalar no iPhone</h4><p>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p>
     <h4>Instalar no Android</h4><p>Use o link abaixo para baixar/instalar a versão atualizada do aplicativo (APK).</p>
     <a href="https://drive.google.com/file/d/1B-2WuLwitVwmGtrEdcqLZYpCJQPFTRIZ/view?usp=drive_link" target="_blank" rel="noopener"><button class="p">Baixar atualização do app (APK)</button></a>
     <a href="https://wa.me/${WHATSAPP}" target="_blank" rel="noopener"><button class="p s">Falar com o desenvolvedor (WhatsApp)</button></a><p>Aplicativo não oficial. Confira sempre a escala original.</p></div>`;
-  if(S.full){A.innerHTML=`<div class="fulltop"><button class="voltar" onclick="S.full=false;desenhar()">‹ Voltar</button><div class="marca">ESCALAPM</div><h1>Escala completa</h1><div class="sub">${esc(ult&&ult.cidade?ult.cidade:"Sua unidade")}</div></div>
-    <div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${escalaDoDia(Md,S.sel-1)}</div>
-    <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel,true)}</div></div>`;return}
+  if(S.full||S.cid){
+    const cidF=S.cid?CID.find(x=>x.k===S.cid):CID.find(x=>x.n===(Md&&Md.cidade||ult&&ult.cidade));
+    const btnF=cidF&&cidF.c&&Md?`<button class="po" onclick="abrirOps('d','${cidF.k}',${S.sel})">Verificar operações do dia</button>`:"";
+    const nomeF=cidF?cidF.n:(ult&&ult.cidade)||"Sua unidade";
+    const voltar=S.cid?`<button class="voltar" onclick="trocar()">‹ Trocar cidade</button>`:`<button class="voltar" onclick="S.full=false;desenhar()">‹ Voltar</button>`;
+    const corpo=!Md&&S.carregando&&!k.length?`<p>Carregando a escala…</p>`:escalaDoDia(Md,S.sel-1);
+    const atual=S.cid?`<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div>`:"";
+    A.innerHTML=`<div class="fulltop">${voltar}<div class="marca">ESCALAPM</div><h1>Escala completa</h1><div class="sub">${esc(nomeF)}</div>${atual}</div>${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}
+    <div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}${btnF}</div>
+    <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel,true)}</div></div>${S.cid?`<p class="info" style="text-align:center">Aplicativo não oficial. Confira sempre a escala original.</p>`:""}`;return}
   A.innerHTML=`<header><div class="top"><div class="marca">ESCALAPM</div><button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button></div><h1>${esc(ult?ult.nome:"Carregando…")}</h1><div class="sub">${esc(ult?ult.grad+" · ":"")}PM ${fmtPm(S.pm)}</div>${ult&&ult.cidade?`<div class="sub" style="margin-top:6px">${esc(ult.cidade)}</div>`:""}<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div></header>
     ${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}${S.aj?painel:`<div class="main-grid">${cardSelecionado}
     <div class="cart calendar-card"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}${M&&M.previa?" (prévia)":""}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel)}
@@ -283,10 +322,165 @@ function desenhar(){
     <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}</div>`}`;
 }
 
+// ===== OPERAÇÕES (planilha pública, uma aba por cidade/mês) =====
+const OPERACOES_PUBLICADAS_ID="2PACX-1vTOmy2u2jP6Lklna20_PhivKBpFjq9t6W3PeYcPkAX-phRvBFcIN0cCCmRtqxldjSEzEuU6MineAGqJ";
+const OPERACOES_ID_REAL=""; // opcional: ID real da planilha de operações (usa a API do Google se o navegador bloquear a página publicada)
+const PUB="https://docs.google.com/spreadsheets/d/e/"+OPERACOES_PUBLICADAS_ID;
+const R_DATA=/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/;
+const R_FAIXA=/(\d{1,2})\s*(?:H|:)?\s*(\d{2})?\s*(?:MIN)?\s*(?:AS|ÀS|À|-|–)\s*(\d{1,2})\s*(?:H|:)?\s*(\d{2})?\s*(?:MIN)?/i;
+const TTL_CSV=10*60*1000,TTL_ABAS=60*60*1000,TTL_FALHA=2*60*1000;
+const OPC=new Map(),OPF=new Map(),OPP=new Map(),PRE={};
+let ABP=null,OPID=0;
+
+function faixaMin(t){const m=R_FAIXA.exec(t||"");if(!m)return null;
+  const h1=+m[1],i1=+(m[2]||0),h2=+m[3],i2=+(m[4]||0);
+  if(h1>23||h2>23||i1>59||i2>59)return null;return[h1*60+i1,h2*60+i2]}
+const hm=n=>p2(Math.floor(n/60))+":"+p2(n%60);
+function parseCsv(t){t=(t||"").replace(/^\uFEFF/,"");const rows=[];let r=[],c="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++}else q=false}else c+=ch}
+    else if(ch==='"')q=true;
+    else if(ch===","){r.push(c);c=""}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&t[i+1]==="\n")i++;r.push(c);rows.push(r);r=[];c=""}
+    else c+=ch}
+  if(c!==""||r.length){r.push(c);rows.push(r)}return rows}
+async function txt(u,ms=9000){const ct=new AbortController(),tm=setTimeout(()=>ct.abort(),ms);
+  try{const r=await fetch(u,{signal:ct.signal});if(!r.ok)throw new Error("HTTP "+r.status);return await r.text()}finally{clearTimeout(tm)}}
+const mesmaCidade=(t,cid)=>{const n=norm(t);return!!n&&(n===norm(cid.n)||cidades(t).some(x=>x.k===cid.k))};
+
+function nomesAba(cid,ano,mes){
+  const base={ITAVERAVA:["Itaverava"],CAN:["Catas altas da Noruega","Catas Altas da Noruega"],LAMIM:["Lamim"],RIO_ESPERA:["Rio espera","Rio Espera"]}[cid.k]||[cid.n];
+  const nm=MESES[mes-1],ab=nm.slice(0,3);
+  return[...new Set(base.flatMap(c=>[`${c} ${nm} ${ano}`,`${c} - ${nm}/${ano}`,`${c} - ${ab} ${ano}`,`${c} ${nm}/${ano}`,`${c} - ${ab}/${ano}`,`${c} ${ab} ${ano}`]))]}
+
+function parseOperacoes(rows,ano,mes){const out=[];
+  for(const l of rows){if(!l||!l.length)continue;
+    const iD=l.findIndex(x=>R_DATA.test((x||"").trim()));if(iD<0)continue;
+    const iH=l.findIndex(x=>faixaMin(x)!==null);if(iH<0)continue;
+    const dm=R_DATA.exec(l[iD].trim()),d=+dm[1],m=+dm[2],y=+dm[3],dt=new Date(y,m-1,d);
+    if(dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d)continue;
+    if(y!==ano||m!==mes)continue;
+    const f=faixaMin(l[iH]);if(!f)continue;
+    let iC=-1;for(let i=0;i<iD;i++)if(/^[A-Z]\d{4,6}$/.test((l[i]||"").trim().toUpperCase())){iC=i;break}
+    if(iC<0)continue;
+    const nome=(l[iC+1]||"").trim();if(!nome)continue;
+    out.push({cidade:(l[0]||"").trim(),codigo:l[iC].trim().toUpperCase(),nome,loc:(l[iC+2]||"").trim(),area:(l[iC+3]||"").trim(),y,m,d,ini:f[0],fim:f[1],
+      obs:l.slice(iH+1).join(" ").trim(),
+      extra:l.slice(iC+4,iC+4+Math.max(0,iD-iC-4)).filter(x=>(x||"").trim()).join(" · ").trim()})}
+  return out}
+
+// lista de abas da planilha publicada (guardada por 1 hora)
+async function abasHtml(){
+  const u=PUB+"/pubhtml";
+  const tent=[u,"https://corsproxy.io/?"+encodeURIComponent(u),"https://api.allorigins.win/raw?url="+encodeURIComponent(u)];
+  let html="";
+  for(const x of tent){try{const h=await txt(x,10000);if(/items\.push/.test(h)){html=h;break}}catch(e){}}
+  const m={},re=/items\.push\(\{name:\s*"((?:\\.|[^"])*)".*?gid:\s*"(-?\d+)"/gis;
+  for(const x of html.matchAll(re)){
+    const t=x[1].replace(/\\\//g,"/").replace(/\\"/g,'"').replace(/\\u([0-9a-fA-F]{4})/g,(_,h)=>String.fromCharCode(parseInt(h,16))).replace(/\\x([0-9a-fA-F]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16))).trim();
+    if(t)m[t]=+x[2]}
+  return m}
+async function abasApi(){
+  const r=await api(`https://sheets.googleapis.com/v4/spreadsheets/${OPERACOES_ID_REAL}?fields=sheets.properties(title,hidden)&key=${CHAVE_API}`);
+  const m={};for(const s of r.sheets||[])if(!s.properties.hidden)m[s.properties.title]=s.properties.title;return m}
+function abasPublicadas(forcar){
+  if(ABP)return ABP;
+  ABP=(async()=>{const c=ler("opAbas",null);
+    if(!forcar&&c&&c.m&&Date.now()-c.t<TTL_ABAS&&Object.keys(c.m).length)return c.m;
+    let m={};try{m=OPERACOES_ID_REAL?await abasApi():await abasHtml()}catch(e){}
+    if(Object.keys(m).length){gravar("opAbas",{t:Date.now(),m});return m}
+    return c&&c.m?c.m:{}})();
+  ABP.then(()=>{ABP=null},()=>{ABP=null});return ABP}
+async function linhasDaAba(ref){
+  if(OPERACOES_ID_REAL){
+    const r=await api(`https://sheets.googleapis.com/v4/spreadsheets/${OPERACOES_ID_REAL}/values/${encodeURIComponent("'"+String(ref).replace(/'/g,"''")+"'!A1:AZ500")}?key=${CHAVE_API}`);
+    return r.values||[]}
+  const t=await txt(`${PUB}/pub?gid=${ref}&single=true&output=csv`);
+  if(!t.trim()||t.trimStart().startsWith("<"))throw new Error("aba");
+  return parseCsv(t)}
+const erroRede=()=>new Error("Não consegui acessar a planilha de operações. Confira a internet e tente de novo.");
+
+async function baixarLinhasOperacoes(cid,ano,mes){
+  const nomes=nomesAba(cid,ano,mes);
+  const achar=ab=>{
+    for(const n of nomes){const t=Object.keys(ab).find(k=>norm(k)===norm(n));if(t)return t}
+    return Object.keys(ab).find(k=>elegivel(k)&&cidades(k).some(x=>x.k===cid.k)&&mesTxt(k)===mes&&anoTxt(k)===ano)||null};
+  let abas=await abasPublicadas(false),t=achar(abas);
+  // aba não está na lista guardada: pode ter sido criada agora, atualiza a lista uma vez
+  if(!t&&Date.now()-(ler("opAbas",{t:0})||{t:0}).t>TTL_FALHA){abas=await abasPublicadas(true);t=achar(abas)}
+  if(t){try{return await linhasDaAba(abas[t])}catch(e){}}
+  if(!Object.keys(abas).length){
+    // sem lista de abas: tenta direto pelo nome (endereço alternativo)
+    for(const n of nomes){try{
+      const g=await txt(PUB+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(n),8000);
+      if(g.trim()&&!g.trimStart().startsWith("<"))return parseCsv(g)}catch(e){}}
+    throw erroRede()}
+  // busca alternativa: identifica a aba pelo conteúdo da coluna A
+  const cand=Object.keys(abas).filter(k=>{const m=mesTxt(k),y=anoTxt(k);return(!m||m===mes)&&(!y||y===ano)}).slice(0,15);
+  const res=await Promise.allSettled(cand.map(k=>linhasDaAba(abas[k])));
+  if(cand.length&&res.every(r=>r.status!=="fulfilled"))throw erroRede();
+  for(const r of res){if(r.status!=="fulfilled")continue;const rows=r.value;
+    if(rows.filter(l=>mesmaCidade(l[0],cid)).length<2)continue;
+    if(parseOperacoes(rows,ano,mes).some(o=>mesmaCidade(o.cidade,cid)))return rows}
+  const e=new Error(`A aba '${nomes[nomes.length-1]}' não foi encontrada ou não está publicada.`);e.nao=true;throw e}
+
+// com cache: reabrir é instantâneo; também é chamada em segundo plano (pré-carregamento)
+function obterLinhasOperacoes(cid,ano,mes){
+  const ch=`${cid.k}|${ano}|${mes}`,ag=Date.now(),c=OPC.get(ch);
+  if(c&&ag-c.t<TTL_CSV)return Promise.resolve(c.r);
+  const f=OPF.get(ch);if(f&&ag-f.t<TTL_FALHA)return Promise.reject(new Error(f.m));
+  if(OPP.has(ch))return OPP.get(ch);
+  const p=(async()=>{try{const r=await baixarLinhasOperacoes(cid,ano,mes);OPC.set(ch,{t:Date.now(),r});OPF.delete(ch);return r}
+    catch(e){if(e.nao){OPF.set(ch,{t:Date.now(),m:e.message});throw e}if(c)return c.r;throw e.message&&e.message.startsWith("Não consegui")?e:erroRede()}})();
+  OPP.set(ch,p);p.then(()=>OPP.delete(ch),()=>OPP.delete(ch));return p}
+
+async function consultarOps(modo,cid,ano,mes,dia,desc){
+  const rows=await obterLinhasOperacoes(cid,ano,mes);
+  let todas=parseOperacoes(rows,ano,mes).filter(o=>mesmaCidade(o.cidade,cid)),r;
+  if(modo==="d")r=todas.filter(o=>o.d===dia); // modo cidade: todas as operações do dia
+  else{
+    const f=faixaMin(desc);if(!f)throw new Error("Não foi possível identificar o horário de início e término deste turno.");
+    const vira=f[1]<=f[0];
+    if(vira&&dia===new Date(ano,mes,0).getDate()){ // turno da noite no último dia do mês: operações da madrugada estão na aba do mês seguinte
+      const p=new Date(ano,mes,1),y2=p.getFullYear(),m2=p.getMonth()+1;
+      try{const r2=await obterLinhasOperacoes(cid,y2,m2);todas=todas.concat(parseOperacoes(r2,y2,m2).filter(o=>mesmaCidade(o.cidade,cid)))}catch(e){}}
+    const ini=new Date(ano,mes-1,dia,0,f[0]).getTime(),fim=new Date(ano,mes-1,dia+(vira?1:0),0,f[1]).getTime();
+    r=todas.filter(o=>{const t=new Date(o.y,o.m-1,o.d,0,o.ini).getTime();return t>=ini&&t<fim})}
+  return r.sort((a,b)=>a.y-b.y||a.m-b.m||a.d-b.d||a.ini-b.ini||a.codigo.localeCompare(b.codigo))}
+
+async function abrirOps(modo,k,dia,cod){
+  const cid=CID.find(c=>c.k===k);if(!cid)return;
+  const id=++OPID,y=Math.floor(S.vis/100),mo=S.vis%100,M=S.meses[S.vis];
+  const sub=modo==="d"?`Todas as operações de ${p2(dia)}/${p2(mo)}/${y}`:`Turno ${cod} · dia ${p2(dia)}/${p2(mo)}/${y}`;
+  S.op={id,modo,cidade:cid.n,sub,carregando:true,erro:null,lista:[]};desenhar();
+  try{const l=await consultarOps(modo,cid,y,mo,dia,M?descr(M,cod||""):"");if(!S.op||S.op.id!==id)return;S.op.lista=l}
+  catch(e){if(!S.op||S.op.id!==id)return;S.op.erro=e.message||"Não foi possível consultar as operações."}
+  S.op.carregando=false;desenhar()}
+function fecharOps(){OPID++;S.op=null;desenhar()}
+function modalOps(){const o=S.op;if(!o)return"";let corpo;
+  if(o.carregando)corpo=`<div class="spin"></div><p class="sub2">Consultando a planilha publicada…</p>`;
+  else if(o.erro)corpo=`<p style="color:#B3261E">${esc(o.erro)}</p>`;
+  else if(!o.lista.length)corpo=`<p class="sub2">${o.modo==="d"?"Nenhuma operação prevista para este dia.":"Nenhuma operação prevista para este turno."}</p>`;
+  else corpo=o.lista.map((x,i)=>(i?"<hr>":"")+`<div class="op"><div class="t">${p2(x.d)}/${p2(x.m)}/${x.y} · ${hm(x.ini)}–${hm(x.fim)}</div><div><b>${esc(x.codigo)} · ${esc(x.nome)}</b></div>`+
+    (x.loc?`<div>Localidade: ${esc(x.loc)}</div>`:"")+(x.area?`<div>Área: ${esc(x.area)}</div>`:"")+(x.extra?`<div>${esc(x.extra)}</div>`:"")+(x.obs?`<div class="ob">${esc(x.obs)}</div>`:"")+`</div>`).join("");
+  return `<div class="mod" onclick="if(event.target===this)fecharOps()"><div role="dialog" aria-modal="true"><h3>Operações · ${esc(o.cidade)}</h3><div class="sub2">${esc(o.sub)}</div>${corpo}<button class="p" onclick="fecharOps()">Fechar</button></div></div>`}
+// baixa as operações em segundo plano para o botão abrir na hora
+function preCarregar(){
+  if(S.op||S.vis==null)return;const M=S.meses[S.vis];if(!M)return;
+  let cid=null;
+  if(S.cid)cid=CID.find(c=>c.k===S.cid);
+  else{const dd=M.dias[S.sel-1];if(dd&&dd.c&&ehTurno(M,dd.c))cid=CID.find(c=>c.n===(dd.o||M.cidade))}
+  if(!cid||!cid.c)return;
+  const y=Math.floor(S.vis/100),mo=S.vis%100,ch=`${cid.k}|${y}|${mo}`;
+  if(PRE[ch]&&Date.now()-PRE[ch]<TTL_FALHA)return;PRE[ch]=Date.now();
+  obterLinhasOperacoes(cid,y,mo).catch(()=>{})}
+function desenhar(){desenharBase();if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());preCarregar()}
+
 // ===== INÍCIO =====
 (function(){const c=document.createElement("canvas");c.width=c.height=180;const x=c.getContext("2d");
   x.fillStyle="#0B1F3A";x.fillRect(0,0,180,180);x.fillStyle="#C9A227";x.font="bold 76px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("PM",90,92);
   document.getElementById("icone").href=c.toDataURL("image/png")})();
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.op)fecharOps()});
 desenhar();atualizar();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-S.ult>5*60*1000)atualizar()});
 window.addEventListener("focus",()=>{if(Date.now()-S.ult>5*60*1000)atualizar()});
