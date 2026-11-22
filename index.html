@@ -90,6 +90,13 @@ input{width:100%;font:inherit;font-size:20px;padding:14px;border-radius:14px;bor
 .spin{width:30px;height:30px;border:4px solid #dde2ec;border-top-color:var(--az);border-radius:50%;animation:gira .8s linear infinite;margin:8px 0}
 @keyframes gira{to{transform:rotate(360deg)}}
 button.po{width:100%;background:transparent;color:#fff;border:1.5px solid #ffffffaa;border-radius:14px;padding:12px;font:inherit;font-weight:600;margin-top:14px;cursor:pointer}
+.ck{display:flex;align-items:center;gap:8px;font-size:15px;padding:5px 0;cursor:pointer}.ck input{width:auto;margin:0;padding:0;flex:none}
+.prev{background:#F2F4F8;border-radius:12px;padding:12px;font-size:15px;line-height:1.45;margin:4px 0 6px;white-space:pre-wrap}
+button.gerar{display:none;background:#fff;color:var(--az);border:1.5px solid var(--az);border-radius:12px;padding:8px 14px;font:inherit;font-size:14px;font-weight:600;margin-top:8px;cursor:pointer}
+.mod input.t2{font-size:16px;margin-top:4px;letter-spacing:0}
+@media (hover:hover) and (pointer:fine){button.gerar{display:inline-block;margin-right:8px}}
+button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
+.feito{color:#1E6B3A;font-weight:700;font-size:14px;margin-top:6px}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -172,11 +179,11 @@ function montar(abas,pm){
     if(alvo[0].cat[c2]&&!(c2 in cat))cat[c2]=alvo[0].cat[c2];
     return{c:c2,o:mk.n,n:nota(alvo[0],alvo[1],i)}});
   return{ano:aP.ano,mes:aP.mes,grad:mP.grad,nome:mP.nome,cidade:aP.cid?aP.cid.n:"",dias:out,leg,cat,previa:aP.previa,
-    col:aP.cid&&aP.cid.c?aP.mil.map(m=>({n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:m.pm===pm})):[]};
+    col:aP.cid&&aP.cid.c?aP.mil.map(m=>({pm:m.pm,n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:m.pm===pm})):[]};
 }
 
 function montarCidade(a){return{ano:a.ano,mes:a.mes,grad:"",nome:"",cidade:a.cid.n,dias:[],leg:a.leg,cat:a.cat,previa:a.previa,
-  col:a.mil.map(m=>({n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:false}))}}
+  col:a.mil.map(m=>({pm:m.pm,n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:false}))}}
 function escolher(lidas){const gr={};for(const a of lidas)(gr[`${a.cid&&a.cid.k}-${a.ano}-${a.mes}`]??=[]).push(a);
   const nota=a=>{const n=" "+norm(a.nome)+" ";return n.includes(" ANTIGA ")?0:n.includes(" ATUALIZ")?2:1};
   return Object.values(gr).map(g=>g.reduce((b,a)=>nota(a)>nota(b)?a:b))}
@@ -462,8 +469,57 @@ function modalOps(){const o=S.op;if(!o)return"";let corpo;
   else if(o.erro)corpo=`<p style="color:#B3261E">${esc(o.erro)}</p>`;
   else if(!o.lista.length)corpo=`<p class="sub2">${o.modo==="d"?"Nenhuma operação prevista para este dia.":"Nenhuma operação prevista para este turno."}</p>`;
   else corpo=o.lista.map((x,i)=>(i?"<hr>":"")+`<div class="op"><div class="t">${p2(x.d)}/${p2(x.m)}/${x.y} · ${hm(x.ini)}–${hm(x.fim)}</div><div><b>${esc(x.codigo)} · ${esc(x.nome)}</b></div>`+
-    (x.loc?`<div>Localidade: ${esc(x.loc)}</div>`:"")+(x.area?`<div>Área: ${esc(x.area)}</div>`:"")+(x.extra?`<div>${esc(x.extra)}</div>`:"")+(x.obs?`<div class="ob">${esc(x.obs)}</div>`:"")+`</div>`).join("");
-  return `<div class="mod" onclick="if(event.target===this)fecharOps()"><div role="dialog" aria-modal="true"><h3>Operações · ${esc(o.cidade)}</h3><div class="sub2">${esc(o.sub)}</div>${corpo}<button class="p" onclick="fecharOps()">Fechar</button></div></div>`}
+    (x.loc?`<div>Localidade: ${esc(x.loc)}</div>`:"")+(x.area?`<div>Área: ${esc(x.area)}</div>`:"")+(x.extra?`<div>${esc(x.extra)}</div>`:"")+(x.obs?`<div class="ob">${esc(x.obs)}</div>`:"")+`${blocoGer(x,i)}</div>`).join("");
+  const miolo=o.gen?genView(o):`<h3>Operações · ${esc(o.cidade)}</h3><div class="sub2">${esc(o.sub)}</div>${corpo}<button class="p" onclick="fecharOps()">Fechar</button>`;
+  return `<div class="mod" onclick="if(event.target===this)fecharOps()"><div role="dialog" aria-modal="true">${miolo}</div></div>`}
+
+// ===== GERAR OPERAÇÃO (mensagem pronta para o WhatsApp do administrativo; só em computador) =====
+const WHATS_ADM="553199457188"; // WhatsApp fixo do administrativo (55 + DDD + número)
+let GER=ler("gerados",null)||{}; // operações já geradas, guardadas neste navegador
+const saudacao=()=>{const h=new Date().getHours();return h>=5&&h<12?"Bom dia":h>=12&&h<18?"Boa tarde":"Boa noite"}; // madrugada (0h às 4h59) = Boa noite
+// >>> Para mudar o texto da mensagem, edite só esta função <<<
+function msgOperacao(x,pm,end){
+  const integ=pm?` e integrar para o PM número ${fmtPm(pm)}`:"";
+  return `${saudacao()}, poderia por gentileza gerar a operação ${x.nome} (${x.codigo}) no endereço ${end}${integ}?`}
+const chaveGer=x=>`${S.op.cidade}|${x.y}-${x.m}-${x.d}|${x.ini}|${x.codigo}`;
+function blocoGer(x,i){const t=GER[chaveGer(x)],d=t?new Date(t):null;
+  return(d?`<div class="feito">✔ Operação gerada em ${p2(d.getDate())}/${p2(d.getMonth()+1)} às ${p2(d.getHours())}:${p2(d.getMinutes())}</div>`:"")+
+    `<button class="gerar" onclick="gerarOp(${i})">${d?"Gerar novamente":"Gerar operação"}</button>`+(d?`<button class="gerar desm" onclick="desmarcarGer(${i})">Desmarcar</button>`:"")}
+function desmarcarGer(i){delete GER[chaveGer(S.op.lista[i])];gravar("gerados",GER);desenhar()}
+// militares de serviço na hora da operação (inclui o turno da noite que começou no dia anterior)
+function candidatosOp(x){
+  const out=[],vis=new Set(),add=p=>{if(p&&p.pm&&!vis.has(p.pm)){vis.add(p.pm);out.push(p)}};
+  for(const[dt,ant]of[[new Date(x.y,x.m-1,x.d),0],[new Date(x.y,x.m-1,x.d-1),1]]){
+    const M=S.meses[dt.getFullYear()*100+dt.getMonth()+1];if(!M||M.cidade!==S.op.cidade)continue;
+    for(const c of Object.keys(M.leg)){if(!ehTurno(M,c))continue;const f=faixaMin(descr(M,c));if(!f)continue;const vira=f[1]<=f[0];
+      const dentro=ant?(vira&&x.ini<f[1]):(vira?x.ini>=f[0]:x.ini>=f[0]&&x.ini<f[1]);
+      if(dentro)(M.col||[]).forEach(p=>{if((p.c[dt.getDate()-1]||"").trim().toUpperCase()===c)add(p)})}}
+  const Mx=S.meses[x.y*100+x.m]||S.meses[S.vis];
+  if(S.pm&&!vis.has(S.pm)&&Mx)out.unshift({pm:S.pm,g:Mx.grad,n:Mx.nome,eu:true});
+  return out}
+function gerarOp(i){
+  const o=S.op,x=o.lista[i],cands=candidatosOp(x);
+  const pm=S.pm&&cands.some(p=>p.pm===S.pm)?S.pm:cands.length?cands[0].pm:"";
+  o.gen={i,cands,pm,end:""};desenhar();const e=document.getElementById("end");if(e)e.focus()}
+function textoGen(){const g=S.op.gen;return msgOperacao(S.op.lista[g.i],g.pm,(g.end||"").trim()||"[digite o endereço]")}
+const atualizarPrev=()=>{const e=document.getElementById("prev");if(e)e.textContent=textoGen()};
+function escolherPm(pm){S.op.gen.pm=pm;atualizarPrev()}
+function genView(o){const g=o.gen,x=o.lista[g.i],n=WHATS_ADM.slice(2);
+  return `<h3>Gerar operação</h3><div class="sub2">${esc(x.codigo)} · ${esc(x.nome)}</div>
+  <div class="sub2" style="margin-top:8px"><b>Endereço da operação</b></div>
+  <input class="t2" id="end" type="text" autocomplete="off" placeholder="Ex.: Rua Francisco Coleta, nº 178" value="${esc(g.end)}" oninput="S.op.gen.end=this.value;this.style.borderColor='';atualizarPrev()" onkeydown="if(event.key==='Enter')enviarWa()">
+  <div class="sub2" style="margin-top:12px"><b>Integrar para:</b></div>
+  ${g.cands.length?g.cands.map(p=>`<label class="ck"><input type="radio" name="pmsel" ${g.pm===p.pm?"checked":""} onchange="escolherPm('${p.pm}')"><span>${esc(p.g)} ${esc(p.n)} · ${fmtPm(p.pm)}${p.eu?" (você)":""}</span></label>`).join(""):`<p class="sub2">Nenhum militar identificado neste turno.</p>`}
+  <div class="sub2" style="margin-top:12px"><b>Mensagem</b> (será enviada para o WhatsApp (${esc(n.slice(0,2))}) ${esc(n.slice(2))})</div><div class="prev" id="prev">${esc(textoGen())}</div>
+  <button class="p" onclick="enviarWa()">Abrir no WhatsApp</button><button class="p s" onclick="S.op.gen=null;desenhar()">‹ Voltar às operações</button>`}
+function enviarWa(){
+  const g=S.op.gen,end=(g.end||"").trim();
+  if(!end){const e=document.getElementById("end");e.style.borderColor="#B3261E";e.focus();return}
+  const x=S.op.lista[g.i],u=`https://wa.me/${WHATS_ADM}?text=${encodeURIComponent(msgOperacao(x,g.pm,end))}`;
+  if(!window.open(u,"_blank"))location.href=u;
+  GER[chaveGer(x)]=Date.now();
+  const lim=Date.now()-90*864e5;for(const k in GER)if(GER[k]<lim)delete GER[k];
+  gravar("gerados",GER);S.op.gen=null;desenhar()}
 // baixa as operações em segundo plano para o botão abrir na hora
 function preCarregar(){
   if(S.op||S.vis==null)return;const M=S.meses[S.vis];if(!M)return;
