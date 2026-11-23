@@ -63,15 +63,16 @@ input{width:100%;font:inherit;font-size:20px;padding:14px;border-radius:14px;bor
 .dia-detalhes .col{color:#fff;font-size:14px;padding:3px 0}
 .dia-detalhes .colegas-titulo{margin-top:10px;color:var(--ou);font-weight:600}
 @media(min-width:800px){
-  .main-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(420px,.92fr);grid-template-areas:"summary calendar" "next calendar" "full calendar";align-items:start;column-gap:22px;row-gap:0;margin-top:22px}
+  .main-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(420px,.92fr);grid-template-areas:"summary calendar" "next calendar" "full calendar" "bh calendar";align-items:start;column-gap:22px;row-gap:0;margin-top:22px}
   .hoje{grid-area:summary}
   .calendar-card{grid-area:calendar}
   .full-button{grid-area:full}
   .prox{grid-area:next}
+  .bh{grid-area:bh}
   .w{max-width:1120px;padding:0 24px 40px}
   header{margin:0 -24px;border-radius:0 0 40px 40px;padding-left:48px;padding-right:48px}
-  .main-grid{grid-template-columns:minmax(0,1.08fr) minmax(420px,.92fr);grid-template-areas:"summary calendar" "next calendar" "full calendar";align-items:start;column-gap:22px;row-gap:0;margin-top:22px}
-  .hoje,.cart,.prox{margin:0 0 18px}
+  .main-grid{grid-template-columns:minmax(0,1.08fr) minmax(420px,.92fr);grid-template-areas:"summary calendar" "next calendar" "full calendar" "bh calendar";align-items:start;column-gap:22px;row-gap:0;margin-top:22px}
+  .hoje,.cart,.prox,.bh{margin:0 0 18px}
   .calendar-card{padding:24px}
   .c{min-height:68px}
   .c i{font-size:13px}.c b{font-size:18px}
@@ -97,6 +98,8 @@ button.gerar{display:none;background:#fff;color:var(--az);border:1.5px solid var
 @media (hover:hover) and (pointer:fine){button.gerar{display:inline-block;margin-right:8px}}
 button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
 .feito{color:#1E6B3A;font-weight:700;font-size:14px;margin-top:6px}
+.bh small{color:var(--ou);letter-spacing:.12em;font-weight:700;font-size:13px}
+.bh .val{font-size:32px;font-weight:700;margin-top:6px}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -105,6 +108,7 @@ button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
 const PLANILHA_ID="1qY6dfCt804Lwih-8Q44Po1nxcuBfHcndQKSp74e7MAQ";
 const CHAVE_API="AIzaSyCI-vebKL9GUe7ubcAFf3Iu0LaX_I7uqzI"; // troque por uma chave restrita ao seu site (veja as instruções)
 const WHATSAPP="5532991533066";
+const HORAS_ID="1qhNpc39S9JZ3lSVudFBQUAM_jDIjgqGpkMtTzUw8s0Y"; // controle de carga horária (1ª aba: col. B = Nº Polícia, col. E = saldo)
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
 const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1,"ITA"],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1,"CAN"],["LAMIM","Lamim",["LAMIM"],1,"LAM"],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1,"RIO"],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0,"OB"]].map(([k,n,a,c,s])=>({k,n,a,c,s}));
@@ -216,7 +220,21 @@ const descr=(m,c)=>FIXO[c]&&!m.leg[c]?FIXO[c]:(c==="PSO"?FIXO.PSO:m.leg[c]||"");
 // ===== ESTADO =====
 const ler=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
 const gravar=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-const S={pm:ler("pm",""),cid:ler("cid",""),op:null,ent:"",meses:ler("meses",{}),ult:ler("ult",0),msg:"",erro:"",carregando:false,aj:false,full:false,vis:null,sel:null};
+const S={pm:ler("pm",""),cid:ler("cid",""),op:null,ent:"",meses:ler("meses",{}),ult:ler("ult",0),bh:ler("bh",null),msg:"",erro:"",carregando:false,aj:false,full:false,vis:null,sel:null};
+
+// ===== BANCO DE HORAS =====
+function minSaldo(t){const s=(t||"").trim().replace(/[−–]/g,"-"),neg=s.startsWith("-"),m=/^(\d+):(\d{2})(?::\d{2})?$/.exec(s.replace(/^[-+]\s*/,""));
+  return m?(neg?-1:1)*(+m[1]*60+ +m[2]):null}
+function fmtSaldo(min){const a=Math.abs(min);return(min<0?"−":min>0?"+":"")+Math.floor(a/60)+":"+p2(a%60)+" h"}
+async function atualizarBH(){
+  const r=await api(`https://sheets.googleapis.com/v4/spreadsheets/${HORAS_ID}/values/A1:E500?valueRenderOption=FORMATTED_VALUE&key=${CHAVE_API}`);
+  let min=null;
+  for(const l of r.values||[])if((l[1]||"").replace(/\D/g,"")===S.pm){min=minSaldo(l[4]);break}
+  S.bh=min==null?null:{pm:S.pm,min};gravar("bh",S.bh)}
+function cardBH(){
+  if(!S.pm||!S.bh||S.bh.pm!==S.pm)return"";
+  const cor=S.bh.min>0?"#1E6B3A":S.bh.min<0?"#B3261E":"var(--az)";
+  return `<div class="cart bh"><small>BANCO DE HORAS</small><div class="val" style="color:${cor}">${fmtSaldo(S.bh.min)}</div></div>`}
 
 async function atualizar(){
   if((!S.pm&&!S.cid)||S.carregando)return;
@@ -226,6 +244,7 @@ async function atualizar(){
     if(!Object.keys(novos).length)S.erro=S.cid?"Não encontrei a escala desta cidade nas planilhas atuais.":"Seu número PM não foi encontrado nas escalas atuais.";
     else{S.meses={...S.meses,...novos};S.ult=Date.now();gravar("meses",S.meses);gravar("ult",S.ult)}
   }catch(e){S.erro="Não consegui atualizar ("+e.message+"). Mostrando os dados salvos."}
+  if(S.pm){try{await atualizarBH()}catch(e){}}
   S.carregando=false;S.msg="";desenhar()}
 
 // ===== TELA =====
@@ -251,9 +270,9 @@ function entrar(){
     const v=bruto.replace(/\D/g,"");
     if(v.length<6||v.length>7){S.erro="Digite o número PM com 7 dígitos ou o nome da cidade.";desenhar();return}
     S.pm=v;S.cid="";gravar("pm",v);gravar("cid","")}
-  S.meses={};S.erro="";S.vis=null;S.sel=null;S.full=false;S.ent="";gravar("meses",{});atualizar()}
+  S.meses={};S.bh=null;gravar("bh",null);S.erro="";S.vis=null;S.sel=null;S.full=false;S.ent="";gravar("meses",{});atualizar()}
 function trocar(){if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
-  S.pm="";S.cid="";S.meses={};S.aj=false;S.full=false;S.op=null;S.vis=null;S.sel=null;S.erro="";S.ent="";gravar("pm","");gravar("cid","");gravar("meses",{});desenhar()}
+  S.pm="";S.cid="";S.meses={};S.bh=null;gravar("bh",null);S.aj=false;S.full=false;S.op=null;S.vis=null;S.sel=null;S.erro="";S.ent="";gravar("pm","");gravar("cid","");gravar("meses",{});desenhar()}
 function ajustes(){S.aj=!S.aj;desenhar();if(S.aj)scrollTo(0,0)}
 
 function proximoTurno(){
@@ -326,7 +345,7 @@ function desenharBase(){
     ${S.erro?`<div class="erro">${esc(S.erro)}</div>`:""}${S.aj?painel:`<div class="main-grid">${cardSelecionado}
     <div class="cart calendar-card"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}${M&&M.previa?" (prévia)":""}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel)}
     <div class="leg"><span><s class="d"></s>Dia</span><span><s class="n"></s>Noite</span><span><s class="f"></s>Folga</span><span><s class="o"></s>Outros</span><span>• nota</span></div></div>
-    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}</div>`}`;
+    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}${cardBH()}</div>`}`;
 }
 
 // ===== OPERAÇÕES (planilha pública, uma aba por cidade/mês) =====
