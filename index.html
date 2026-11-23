@@ -552,9 +552,7 @@ function preCarregar(){
 function desenhar(){desenharBase();if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());preCarregar()}
 
 // ===== INÍCIO =====
-(function(){const c=document.createElement("canvas");c.width=c.height=180;const x=c.getContext("2d");
-  x.fillStyle="#0B1F3A";x.fillRect(0,0,180,180);x.fillStyle="#C9A227";x.font="bold 76px system-ui,sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("PM",90,92);
-  document.getElementById("icone").href=c.toDataURL("image/png")})();
+document.getElementById("icone").href = "./logo.png";
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.op)fecharOps()});
 desenhar();atualizar();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-S.ult>5*60*1000)atualizar()});
