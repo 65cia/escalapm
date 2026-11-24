@@ -165,16 +165,20 @@ function interpretar(g,nome,notas){
   nd=Math.min(nd,new Date(ano,mes,0).getDate());if(nd<28)return null;
   let cs=cidades(nome);if(cs.length!==1){const t=cidades(tit);if(t.length===1)cs=t}
   const previa=ehPrevia(nome);
-  const mil=[];let iLeg=g.length;
+  const mil=[];let iLeg=g.length,fimMil=idx;
   for(let i=idx+1;i<g.length;i++){const l=g[i];
     if(l.some(x=>norm(x)==="LEGENDA")){iLeg=i;break}
     const pm=(l[cPm]||"").replace(/\D/g,"");
-    if(pm.length>=6)mil.push({pm,grad:limpar(l[cG]),nome:limpar(l[cN]),dias:Array.from({length:nd},(_,k)=>(l[c1+k]||"").trim()),linha:i});
+    if(pm.length>=6)mil.push({pm,grad:limpar(l[cG]),nome:limpar(l[cN]),dias:Array.from({length:nd},(_,k)=>(l[c1+k]||"").trim()),linha:i}),fimMil=i;
     else if(ehCodigo(l[cG])&&(l[cN]||"").trim()){iLeg=i-1;break}}
   const leg={},cat={};let inv=0;
   for(let i=iLeg+1;i<g.length;i++){const l=g[i],c=(l[cG]||"").trim().toUpperCase();
     if(ehCodigo(c)){inv=0;leg[c]=(l[cN]||"").trim();const k=cG>=1?(l[cG-1]||"").trim():"";if(["DIA","NOITE","NEUTRO"].includes(norm(k)))cat[c]=k}
     else if(++inv>=3)break}
+  if(!Object.keys(leg).length){ // legenda em formato diferente (ex.: Rio Espera): procura o código em qualquer coluna
+    for(let i=(iLeg<g.length?iLeg:fimMil)+1;i<g.length;i++){const l=g[i];
+      for(let j=0;j<l.length-1;j++){const c=(l[j]||"").trim().toUpperCase(),d=(l[j+1]||"").trim();
+        if(ehCodigo(c)&&d.length>2&&!(c in leg)){leg[c]=d;break}}}}
   return{cid:cs[0]||null,ano,mes,previa,nome,mil,leg,cat,c1,notas}
 }
 
@@ -226,7 +230,11 @@ function tipo(m,c){c=(c||"").trim().toUpperCase();if(!c)return"v";if(FOLGAS.incl
   const k=norm(m.cat[c]||"");if(k==="NOITE")return"n";if(k==="NEUTRO")return"o";if(k==="DIA")return"d";
   const h=parseInt((RH.exec(m.leg[c]||"")||[])[1]);return!isNaN(h)&&(h>=17||h<5)?"n":"d"}
 // turno de verdade = código que existe na legenda da escala (e é de dia ou de noite); sigla de cidade, FO, FA etc. não contam
-const ehTurno=(m,c)=>{c=(c||"").trim().toUpperCase();return!!c&&!!(m.leg[c]||m.cat[c])&&["d","n"].includes(tipo(m,c))};
+const SIGLAS=CID.map(x=>x.s);
+const ehTurno=(m,c)=>{c=(c||"").trim().toUpperCase();if(!c)return false;
+  if(m.leg[c]||m.cat[c])return["d","n"].includes(tipo(m,c));
+  if(Object.keys(m.leg).length||Object.keys(m.cat).length)return false; // legenda existe: só vale o que está nela
+  return ehCodigo(c)&&!FOLGAS.includes(c)&&!AFAST.includes(c)&&c!=="PSO"&&!SIGLAS.includes(c)&&!cidades(c).length}
 const tipoDia=(m,d)=>d.c?tipo(m,d.c):d.o?"o":"v";
 const FIXO={FO:"FOLGA",RC:"Reposição de carga horária",PSO:"Consulta médica obrigatória (PSOPM)"};
 const descr=(m,c)=>FIXO[c]&&!m.leg[c]?FIXO[c]:(c==="PSO"?FIXO.PSO:m.leg[c]||"");
