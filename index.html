@@ -104,6 +104,7 @@ button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
 .mud{background:#FFF7DB;color:#5c4a00;margin:16px;border-radius:18px;padding:12px 16px;font-size:14px}.mud button{color:#5c4a00;border-color:#5c4a00;margin-top:6px}
 .aj label.ck2{display:flex;gap:10px;align-items:center;margin:8px 0;font-size:15px}.aj input[type=number]{width:70px;padding:8px;border:1.5px solid #c8cedb;border-radius:10px;font:inherit}
 button.c{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.mod input.t2,.mod textarea.t2{width:100%;padding:10px;border:1.5px solid #c8cedb;border-radius:10px;font:inherit;font-size:16px;margin-top:4px}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -297,7 +298,7 @@ function diffMeses(ant,novos){const o=[];for(const k in novos){const a=ant[k],b=
 // ===== COMPROMISSOS =====
 const dkey=(y,m,d)=>`${y}-${p2(m)}-${p2(d)}`;
 function evHtml(y,mo,d){const l=EVT.filter(e=>e.data===dkey(y,mo,d)).sort((a,b)=>a.hora-b.hora);if(!l.length)return"";
-  return`<div class="dia-detalhes"><h3>Compromissos</h3>${l.map(e=>`<div class="ev"><b>${hm(e.hora)}</b><i>${esc(e.titulo)}${e.local?" · "+esc(e.local):""}</i><button onclick="editarEv(${e.id})">Editar</button></div>`).join("")}</div>`}
+  return`<div class="dia-detalhes"><h3>Compromissos</h3>${l.map(e=>`<div class="ev"><b>${hm(e.hora)}</b><i>${esc(e.titulo)}${e.local?" · "+esc(e.local):""}${e.obs?`<br><small style="color:#d4dbea">${esc(e.obs)}</small>`:""}</i><button onclick="editarEv(${e.id})">Editar</button></div>`).join("")}</div>`}
 // segurar um dia do calendário (ou clicar com o botão direito) adiciona compromisso
 let LPT=null,LP=0;
 document.addEventListener("pointerdown",e=>{const b=e.target.closest&&e.target.closest("button.c[data-d]");if(!b)return;clearTimeout(LPT);
@@ -305,20 +306,31 @@ document.addEventListener("pointerdown",e=>{const b=e.target.closest&&e.target.c
 for(const ev of["pointerup","pointermove","pointercancel","pointerleave"])document.addEventListener(ev,()=>clearTimeout(LPT));
 document.addEventListener("contextmenu",e=>{if(e.target.closest&&e.target.closest("button.c[data-d]"))e.preventDefault()});
 function editarEv(id,data){const e=id?EVT.find(x=>x.id===id):null;if(id&&!e)return;
-  const t=prompt("Título do compromisso"+(e?" (apague para excluir)":""),e?e.titulo:"");if(t===null)return;
-  if(!t.trim()){if(e&&confirm("Excluir este compromisso?"))EVT=EVT.filter(x=>x.id!==id);else if(!e)return}
-  else{const h=prompt("Horário (HH:MM)",e?hm(e.hora):"08:00");if(h===null)return;const m=/^(\d{1,2}):?(\d{2})$/.exec(h.trim());if(!m||+m[1]>23||+m[2]>59){alert("Horário inválido.");return}
-    const loc=prompt("Local (opcional)",e?e.local:"");if(loc===null)return;const n={id:e?e.id:Date.now(),data:e?e.data:data,titulo:t.trim(),hora:+m[1]*60+ +m[2],local:loc.trim()};
-    EVT=e?EVT.map(x=>x.id===id?n:x):[...EVT,n]}
-  gravar("evt",EVT);desenhar()}
+  S.evf=e?{...e}:{id:0,data,titulo:"",hora:480,local:"",obs:""};desenhar();setTimeout(()=>{const t=document.getElementById("ev-t");if(t&&!e)t.focus()},50)}
+function modalEv(){const f=S.evf;if(!f)return"";const c=(k,v)=>`oninput="S.evf.${k}=this.value"`;
+  return`<div class="mod" onclick="if(event.target===this)fecharEv()"><div role="dialog" aria-modal="true"><h3>${f.id?"Editar compromisso":"Novo compromisso"}</h3>
+  <div class="sub2"><b>Título</b></div><input class="t2" id="ev-t" type="text" maxlength="80" value="${esc(f.titulo)}" ${c("titulo")}>
+  <div class="sub2" style="margin-top:10px"><b>Data</b></div><input class="t2" type="date" value="${esc(f.data)}" ${c("data")}>
+  <div class="sub2" style="margin-top:10px"><b>Hora</b></div><input class="t2" type="time" value="${hm(f.hora)}" oninput="S.evf.hora=this.value">
+  <div class="sub2" style="margin-top:10px"><b>Local</b> (opcional)</div><input class="t2" type="text" maxlength="100" value="${esc(f.local)}" ${c("local")}>
+  <div class="sub2" style="margin-top:10px"><b>Observação</b> (opcional)</div><textarea class="t2" rows="3" maxlength="300" ${c("obs")}>${esc(f.obs)}</textarea>
+  <button class="p" onclick="salvarEv()">Salvar</button>${f.id?`<button class="p s" style="color:#B3261E;border-color:#B3261E" onclick="excluirEv()">Excluir</button>`:""}<button class="p s" onclick="fecharEv()">Cancelar</button></div></div>`}
+function fecharEv(){S.evf=null;desenhar()}
+function excluirEv(){if(!confirm("Excluir este compromisso?"))return;EVT=EVT.filter(x=>x.id!==S.evf.id);gravar("evt",EVT);fecharEv()}
+function salvarEv(){const f=S.evf,t=(f.titulo||"").trim();if(!t){alert("Digite o título.");return}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(f.data||"")){alert("Escolha a data.");return}
+  let h=f.hora;if(typeof h==="string"){const m=/^(\d{1,2}):(\d{2})$/.exec(h);if(!m){alert("Escolha a hora.");return}h=+m[1]*60+ +m[2]}
+  const n={id:f.id||Date.now(),data:f.data,titulo:t,hora:h,local:(f.local||"").trim(),obs:(f.obs||"").trim()};
+  EVT=f.id?EVT.map(x=>x.id===f.id?n:x):[...EVT,n];gravar("evt",EVT);
+  const[y,m]=f.data.split("-");S.evf=null;desenhar()}
 // ===== CALENDÁRIO (.ics) =====
 function baixarIcs(){const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//EscalaPM//PT","CALSCALE:GREGORIAN"],h0=new Date();h0.setHours(0,0,0,0);
   const dt=(d,min)=>`${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}T${p2(Math.floor(min/60)%24)}${p2(min%60)}00`;
-  const add=(id,tit,d,ini,fim,ant,desc)=>{L.push("BEGIN:VEVENT",`UID:${id}@escalapm`,`DTSTAMP:${dt(new Date(),0)}`,`SUMMARY:${tit}`,`DESCRIPTION:${desc}`,`DTSTART:${dt(d,ini)}`);
+  const add=(id,tit,d,ini,fim,ant,desc,loc)=>{L.push("BEGIN:VEVENT",`UID:${id}@escalapm`,`DTSTAMP:${dt(new Date(),0)}`,`SUMMARY:${tit}`,`DESCRIPTION:${desc}`,`LOCATION:${loc||""}`,`DTSTART:${dt(d,ini)}`);
     const f=new Date(d);if(fim<=ini)f.setDate(f.getDate()+1);L.push(`DTEND:${dt(f,fim)}`,"BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${tit}`,`TRIGGER:-PT${ant}M`,"END:VALARM","END:VEVENT")};
   let n=0;if(S.pm)for(const k of chaves()){const m=S.meses[k];if(!m)continue;m.dias.forEach((d,i)=>{const data=new Date(Math.floor(k/100),k%100-1,i+1);
     if(data<h0||!d||!d.c||!ehTurno(m,d.c))return;const f=faixaMin(descr(m,d.c));if(!f)return;add(`t${k}${i}`,"Serviço "+d.c,data,f[0],f[1],CFG.ant*60,(descr(m,d.c)||"").replace(/[\n,;]/g," "));n++})}
-  for(const e of EVT){const[a,mm,dd]=e.data.split("-"),data=new Date(+a,mm-1,+dd);if(data<h0)continue;add("e"+e.id,e.titulo,data,e.hora,e.hora+60,60,e.local);n++}
+  for(const e of EVT){const[a,mm,dd]=e.data.split("-"),data=new Date(+a,mm-1,+dd);if(data<h0)continue;add("e"+e.id,e.titulo,data,e.hora,e.hora+60,60,(e.obs||"").replace(/[\n,;]/g," "),(e.local||"").replace(/[\n,;]/g," "));n++}
   if(!n){alert("Não há turnos com horário ou compromissos futuros para adicionar.");return}
   L.push("END:VCALENDAR");const u=URL.createObjectURL(new Blob([L.join("\r\n")],{type:"text/calendar"})),a=document.createElement("a");a.href=u;a.download="escalapm.ics";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)}
 function cfgAlertas(v){CFG.alertas=v;salvarCfg()}
@@ -605,7 +617,7 @@ function preCarregar(){
   const y=Math.floor(S.vis/100),mo=S.vis%100,ch=`${cid.k}|${y}|${mo}`;
   if(PRE[ch]&&Date.now()-PRE[ch]<TTL_FALHA)return;PRE[ch]=Date.now();
   obterLinhasOperacoes(cid,y,mo).catch(()=>{})}
-function desenhar(){desenharBase();if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());preCarregar()}
+function desenhar(){desenharBase();if(S.evf)document.getElementById("app").insertAdjacentHTML("beforeend",modalEv());if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());preCarregar()}
 
 // ===== INÍCIO =====
 document.getElementById("icone").href = "./logo.png";
