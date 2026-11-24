@@ -253,13 +253,23 @@ function minSaldo(t){const s=(t||"").trim().replace(/[−–]/g,"-"),neg=s.start
 function fmtSaldo(min){const a=Math.abs(min);return(min<0?"−":min>0?"+":"")+Math.floor(a/60)+":"+p2(a%60)+" h"}
 async function atualizarBH(){
   const r=await api(`https://sheets.googleapis.com/v4/spreadsheets/${HORAS_ID}/values/A1:E500?valueRenderOption=FORMATTED_VALUE&key=${CHAVE_API}`);
-  let min=null;
-  for(const l of r.values||[])if((l[1]||"").replace(/\D/g,"")===S.pm){min=minSaldo(l[4]);break}
+  let min=null;const lista=[];
+  for(const l of r.values||[]){const m=minSaldo(l[4]);if(m==null)continue;const pm=(l[1]||"").replace(/\D/g,"");
+    lista.push({pm,t:norm([l[0],l[2],l[3]].filter(Boolean).join(" ")),min:m});if(min==null&&pm===S.pm)min=m}
+  S.bhl=lista;gravar("bhl",lista);
   S.bh=min==null?null:{pm:S.pm,min};gravar("bh",S.bh)}
-function cardBH(){
-  if(!S.pm||!S.bh||S.bh.pm!==S.pm)return"";
-  const cor=S.bh.min>0?"#1E6B3A":S.bh.min<0?"#B3261E":"var(--az)";
-  return `<div class="cart bh"><small>BANCO DE HORAS</small><div class="val" style="color:${cor}">${fmtSaldo(S.bh.min)}</div></div>`}
+// saldo do militar que aparece no mês exibido: procura pelo nome da escala daquele mês; sem nome na planilha, usa o número PM
+function saldoDoMes(ref){
+  const l=S.bhl||ler("bhl",[]);
+  if(ref&&ref.nome&&l.length){const tk=norm(ref.nome).split(/\s+/).filter(x=>x.length>1);
+    if(tk.length){const c=l.filter(x=>x.t&&tk.every(t=>x.t.includes(t)));
+      if(c.length===1)return c[0].min;
+      if(c.length>1){const q=c.find(x=>x.pm===S.pm);if(q)return q.min}}}
+  return S.bh&&S.bh.pm===S.pm?S.bh.min:null}
+function cardBH(ref){
+  if(!S.pm)return"";const min=saldoDoMes(ref);if(min==null)return"";
+  const cor=min>0?"#1E6B3A":min<0?"#B3261E":"var(--az)";
+  return `<div class="cart bh"><small>BANCO DE HORAS</small><div class="val" style="color:${cor}">${fmtSaldo(min)}</div></div>`}
 
 async function atualizar(){
   if((!S.pm&&!S.cid)||S.carregando)return;
@@ -431,7 +441,7 @@ function desenharBase(){
     ${erroHtml()}${S.aj?painel:`<div class="main-grid">${cardSelecionado}
     <div class="cart calendar-card"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}${M&&M.previa?" (prévia)":""}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel)}
     <div class="leg"><span><s class="d"></s>Dia</span><span><s class="n"></s>Noite</span><span><s class="f"></s>Folga</span><span><s class="o"></s>Outros</span><span>• nota</span><span>Segure um dia: compromisso</span></div></div>
-    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}${cardBH()}</div>`}`;
+    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}${cardBH(ref)}</div>`}`;
 }
 
 // ===== OPERAÇÕES (planilha pública, uma aba por cidade/mês) =====
