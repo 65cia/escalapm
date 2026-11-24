@@ -126,14 +126,21 @@ const esc=t=>(t||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"
 const cidades=t=>{const s=" "+norm(t)+" ";return CID.filter(c=>c.a.some(a=>s.includes(" "+a+" ")))};
 const MN=MESES.map(norm);
 function mesTxt(t){for(const tk of norm(t).split(" "))for(let i=0;i<12;i++){const c=MN[i],a=c.slice(0,3);if(tk===c||tk===a)return i+1;if(tk.length>3&&tk.startsWith(a)&&/^\d+$/.test(tk.slice(3)))return i+1}return null}
-const anoTxt=t=>{const m=/(20\d{2})/.exec(t);return m?+m[1]:null};
+const anoTxt=t=>{const m=/(20\d{2})/.exec(t);if(m)return+m[1];
+  const c=/(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)[A-Z]*\s?(\d{2})(?!\d)/.exec(norm(t)); // "DEZ26", "MARÇO 26"
+  return c?2000+ +c[1]:null};
+const ehPrevia=t=>norm(t).includes("PREVIA"); // "PREVIA", "PRÉVIA", "1ªPREVIA_DEZ26"
+const versaoAba=t=>{const v=norm(t).split(" ").filter(x=>x&&x.length<=2&&/^\d+$/.test(x)).map(Number).filter(x=>x>=1&&x<=9);return v.length?v[v.length-1]:0}; // "LAMIM 1"→1, "1ª PREVIA"→1
+const prioAba=t=>{const n=" "+norm(t)+" ";return n.includes(" ANTIGA ")?0:n.includes("ATUALIZ")?2:1};
 const ehCodigo=t=>/^[A-Z]{1,4}\d{0,3}$/.test((t||"").trim().toUpperCase());
 const limpar=t=>(t||"").trim().replace(/\s+/g," ");
 const fmtPm=p=>p.length===7?`${p.slice(0,3)}.${p.slice(3,6)}-${p[6]}`:p;
 const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
 const p2=n=>String(n).padStart(2,"0");
 
-function elegivel(t){if(!cidades(t).length)return false;const n=" "+norm(t)+" ";return!["COPIA","NAO VALIDA","MOV"].some(x=>n.includes(" "+x+" "))}
+function elegivel(t){if(!cidades(t).length)return false;const n=" "+norm(t)+" ";
+  // "Cópia de ...PREVIA_DEZ26_ITAVERAVA" vale; outras cópias, "não válida" e "MOV" não
+  return(ehPrevia(t)?["NAO VALIDA","MOV"]:["COPIA","NAO VALIDA","MOV"]).every(x=>!n.includes(" "+x+" "))}
 function recente(t){ // ignora abas antigas pelo título (só para baixar menos dados)
   const m=mesTxt(t);if(!m)return true;let y=anoTxt(t);
   if(!y){const k=/(?:^| |[A-Z])(2[4-9])(?!\d)/.exec(norm(t));if(k)y=2000+ +k[1]}
@@ -157,7 +164,7 @@ function interpretar(g,nome,notas){
   const ano=anoTxt(tit)||anoTxt(nome)||new Date().getFullYear();
   nd=Math.min(nd,new Date(ano,mes,0).getDate());if(nd<28)return null;
   let cs=cidades(nome);if(cs.length!==1){const t=cidades(tit);if(t.length===1)cs=t}
-  const previa=norm(nome).split(" ").includes("PREVIA");
+  const previa=ehPrevia(nome);
   const mil=[];let iLeg=g.length;
   for(let i=idx+1;i<g.length;i++){const l=g[i];
     if(l.some(x=>norm(x)==="LEGENDA")){iLeg=i;break}
@@ -193,9 +200,11 @@ function montar(abas,pm){
 
 function montarCidade(a){return{ano:a.ano,mes:a.mes,grad:"",nome:"",cidade:a.cid.n,dias:[],leg:a.leg,cat:a.cat,previa:a.previa,
   col:a.mil.map(m=>({pm:m.pm,n:m.nome,g:m.grad,c:m.dias.map(x=>x.toUpperCase()),eu:false}))}}
-function escolher(lidas){const gr={};for(const a of lidas)(gr[`${a.cid&&a.cid.k}-${a.ano}-${a.mes}`]??=[]).push(a);
-  const nota=a=>{const n=" "+norm(a.nome)+" ";return n.includes(" ANTIGA ")?0:n.includes(" ATUALIZ")?2:1};
-  return Object.values(gr).map(g=>g.reduce((b,a)=>nota(a)>nota(b)?a:b))}
+// Mesma cidade e mês: atualizada > normal > antiga; oficial > prévia; maior versão ("LAMIM 1" > "LAMIM"); aba mais à direita
+function escolher(lidas){const gr={};lidas.forEach((a,i)=>{a.pos=i;(gr[`${a.cid&&a.cid.k}-${a.ano}-${a.mes}`]??=[]).push(a)});
+  const ch=a=>[prioAba(a.nome),a.previa?0:1,versaoAba(a.nome),a.pos];
+  const maior=(a,b)=>{const x=ch(a),y=ch(b);for(let i=0;i<4;i++)if(x[i]!==y[i])return x[i]>y[i];return false};
+  return Object.values(gr).map(g=>g.reduce((b,a)=>maior(a,b)?a:b))}
 
 async function api(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
 async function baixar(pm,cidK){
