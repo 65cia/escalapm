@@ -105,6 +105,7 @@ button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
 .aj label.ck2{display:flex;gap:10px;align-items:center;margin:8px 0;font-size:15px}.aj input[type=number]{width:70px;padding:8px;border:1.5px solid #c8cedb;border-radius:10px;font:inherit}
 button.c{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .mod input.t2,.mod textarea.t2{width:100%;padding:10px;border:1.5px solid #c8cedb;border-radius:10px;font:inherit;font-size:16px;margin-top:4px}
+.pelcol{padding:0 4px}.pelcol .pelc{margin:0 0 14px}.pelcol>small{display:block;margin:6px 0 2px}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -116,7 +117,8 @@ const WHATSAPP="5532991533066";
 const HORAS_ID="1qhNpc39S9JZ3lSVudFBQUAM_jDIjgqGpkMtTzUw8s0Y"; // controle de carga horária (1ª aba: col. B = Nº Polícia, col. E = saldo)
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
-const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1,"ITA"],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1,"CAN"],["LAMIM","Lamim",["LAMIM"],1,"LAM"],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1,"RIO"],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0,"OB"]].map(([k,n,a,c,s])=>({k,n,a,c,s}));
+const CID=[["ITAVERAVA","Itaverava",["ITAVERAVA"],1,"ITA"],["CAN","Catas Altas da Noruega",["CATAS ALTAS","CAN","NORUEGA","NORUEGUA"],1,"CAN"],["LAMIM","Lamim",["LAMIM"],1,"LAM"],["RIO_ESPERA","Rio Espera",["RIO ESPERA","RIO ESP"],1,"RIO"],["OURO_BRANCO","Ouro Branco",["OURO BRANCO"],0,"OB"],
+["PIRANGA","Piranga",["PIRANGA"],1,"PIR",4],["PRES_BERNARDES","Presidente Bernardes",["PRESIDENTE BERNARDES","PRES BERNARDES","PRESIDENTE BERNADES","PRES BERNADES"],1,"PRB",4],["PORTO_FIRME","Porto Firme",["PORTO FIRME","P FIRME"],1,"PFI",4],["SRA_OLIVEIRA","Senhora de Oliveira",["SENHORA DE OLIVEIRA","SRA DE OLIVEIRA","SRA OLIVEIRA","S DE OLIVEIRA","S OLIVEIRA","OLIVEIRA"],1,"SDO",4]].map(([k,n,a,c,s,p])=>({k,n,a,c,s,p:p||3}));
 const FOLGAS=["FO","RC"],AFAST=["FA","LM","FD","FP","DD","TR","CS"];
 const RH=/(\d{1,2})\s*(?:H|:)?\s*(\d{2})?\s*(?:MIN)?\s*(?:AS|ÀS|À|-|–)\s*\d/i;
 
@@ -307,9 +309,42 @@ function entrar(){
     const v=bruto.replace(/\D/g,"");
     if(v.length<6||v.length>7){S.rep=1;S.erro="Digite o número PM com 7 dígitos ou o nome da cidade.";desenhar();return}
     S.pm=v;S.cid="";gravar("pm",v);gravar("cid","")}
-  S.meses={};S.bh=null;gravar("bh",null);S.erro="";S.vis=null;S.sel=null;S.full=false;S.ent="";gravar("meses",{});atualizar()}
-function trocar(){S.rep=0;S.mud=[];gravar("mud",[]);if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
+  S.meses={};S.bh=null;gravar("bh",null);S.erro="";S.vis=null;S.sel=null;S.full=false;S.pelv=false;S.pel=null;S.ent="";gravar("meses",{});atualizar()}
+function trocar(){S.pelv=false;S.pel=null;S.rep=0;S.mud=[];gravar("mud",[]);if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
   S.pm="";S.cid="";S.meses={};S.bh=null;gravar("bh",null);S.aj=false;S.full=false;S.op=null;S.vis=null;S.sel=null;S.erro="";S.ent="";gravar("pm","");gravar("cid","");gravar("meses",{});desenhar()}
+// ===== PELOTÃO =====
+// Comandantes de pelotão (identificados pelo posto "TEN" + nome na escala)
+const CMT=[{p:3,n:"BINA"},{p:4,n:"MARCELO"}];
+function refAtual(){const k=chaves();return S.meses[S.vis]||(k.length?S.meses[k[k.length-1]]:null)}
+function pelDoLogin(){
+  if(S.cid){const c=CID.find(x=>x.k===S.cid);return c&&c.c?c.p:0}
+  const r=refAtual();if(!S.pm||!r)return 0;
+  if(!norm(r.grad).split(" ").includes("TEN"))return 0;
+  const nm=norm(r.nome).split(" "),x=CMT.find(c=>nm.includes(c.n));return x?x.p:0}
+async function baixarPel(p){
+  const base=`https://sheets.googleapis.com/v4/spreadsheets/${PLANILHA_ID}`,ok=t=>cidades(t).some(c=>c.p===p&&c.c);
+  const abas=(await api(`${base}?fields=sheets.properties(title,hidden)&key=${CHAVE_API}`)).sheets.map(s=>s.properties)
+    .filter(q=>!q.hidden&&elegivel(q.title)&&recente(q.title)&&ok(q.title)).map(q=>q.title);
+  const lotes=[];for(let i=0;i<abas.length;i+=6)lotes.push(abas.slice(i,i+6));
+  const campos=encodeURIComponent("sheets(properties(title),data(startRow,startColumn,rowData(values(formattedValue,note))))");
+  const res=await Promise.all(lotes.map(l=>api(`${base}?`+l.map(t=>"ranges="+encodeURIComponent(`'${t.replace(/'/g,"''")}'!A1:AZ150`)).join("&")+`&fields=${campos}&key=${CHAVE_API}`)));
+  const folhas=res.flatMap(r=>r.sheets||[]).sort((a,b)=>abas.indexOf(a.properties.title)-abas.indexOf(b.properties.title));
+  const lidas=[];for(const f of folhas){try{const{g,notas}=grade(f);const a=interpretar(g,f.properties.title,notas);if(a)lidas.push(a)}catch(e){}}
+  const d={};for(const a of escolher(lidas))if(a.cid&&a.cid.p===p&&a.cid.c)(d[a.cid.k]??={})[a.ano*100+a.mes]=montarCidade(a);
+  return d}
+async function atualizarPel(p){S.pelCar=true;S.pelErro="";desenhar();
+  try{const d=await baixarPel(p);S.pel={p,d,em:Date.now()}}catch(e){S.pelErro="Não consegui baixar a escala do pelotão. Verifique a internet e tente de novo."}
+  S.pelCar=false;desenhar()}
+function abrirPel(){const p=pelDoLogin();if(!p)return;S.pelv=true;S.aj=false;
+  if(!S.pel||S.pel.p!==p||Date.now()-S.pel.em>600000)atualizarPel(p);else desenhar();scrollTo(0,0)}
+function telaPelotao(p,y,mo,nd,dt){
+  const cs=CID.filter(c=>c.p===p&&c.c),P=S.pel&&S.pel.p===p?S.pel.d:null;
+  const corpo=!P?(S.pelErro?"":"<p>Carregando a escala do pelotão…</p>"):cs.map(c=>{const m=(P[c.k]||{})[S.vis];
+    return`<div class="roster pelc"><small>${esc(c.n.toUpperCase())}</small>${m?escalaDoDia(m,S.sel-1):"<p>Sem escala publicada.</p>"}</div>`}).join("");
+  const erro=S.pelErro?`<div class="erro">${esc(S.pelErro)}</div><div style="padding:10px 16px 0"><button class="p s" onclick="atualizarPel(${p})">Tentar de novo</button></div>`:"";
+  return`<div class="fulltop"><div class="top"><button class="voltar" onclick="S.pelv=false;desenhar()">‹ Voltar</button></div><div class="marca">ESCALAPM</div><h1>Escala do ${p}º Pelotão</h1><div class="sub">${S.pelCar?"Atualizando…":"Agrupada por cidade"}</div></div>${erro}
+  <div class="full-layout"><div class="pelcol"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}</div>
+  <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(null,y,mo,nd,S.sel,true)}</div></div>`}
 function erroHtml(){let h="";
   if(S.pm&&!S.aj&&CFG.alertas&&S.mud.length)h+=`<div class="mud"><b>Sua escala mudou:</b><br>${S.mud.slice(0,8).map(esc).join("<br>")}${S.mud.length>8?"<br>…":""}<br><button onclick="S.mud=[];gravar('mud',[]);desenhar()">Entendi</button></div>`;
   if(S.erro)h+=`<div class="erro">${esc(S.erro)}</div>`+(S.rep?`<div style="padding:10px 16px 0"><button class="p s" onclick="reportarErro()">Reportar erro para o desenvolvedor</button></div>`:"");
@@ -427,6 +462,16 @@ function desenharBase(){
     <a href="https://drive.google.com/file/d/1B-2WuLwitVwmGtrEdcqLZYpCJQPFTRIZ/view?usp=drive_link" target="_blank" rel="noopener"><button class="p">Baixar atualização do app (APK)</button></a>
     <h4>Sobre o app</h4><p><b>EscalaPM</b> · Versão ${VERSAO}</p><button class="p s" onclick="S.aj=false;atualizar()">Atualizar escala agora</button>
     <button class="p" onclick="zap('Olá! Tenho uma dúvida ou sugestão sobre o EscalaPM: ')">Falar com o desenvolvedor (WhatsApp)</button><button class="p s" onclick="reportarProblema()">Reportar um problema</button><p>Aplicativo não oficial. Confira sempre a escala original.</p></div>`;
+  const pelP=pelDoLogin(),pelBtn=pelP?`<button class="p s full-button" onclick="abrirPel()">Ver escala completa do ${pelP}º Pelotão</button>`:"";
+  const painelCid=`<div class="cart aj"><b style="font-size:20px">Ajustes</b>
+    <h4>Cidade</h4><p><b>${esc((CID.find(x=>x.k===S.cid)||{}).n||"")}</b></p><button class="p s" onclick="S.aj=false;trocar()">Trocar cidade</button>
+    <h4>Compartilhar o app</h4><button class="p" onclick="compartilhar()">Compartilhar o link da versão web</button>
+    <h4>Instalar no iPhone</h4><p>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p>
+    <h4>Instalar no Android</h4><p>Use o link abaixo para baixar/instalar a versão atualizada do aplicativo (APK).</p>
+    <a href="https://drive.google.com/file/d/1B-2WuLwitVwmGtrEdcqLZYpCJQPFTRIZ/view?usp=drive_link" target="_blank" rel="noopener"><button class="p">Baixar atualização do app (APK)</button></a>
+    <h4>Sobre o app</h4><p><b>EscalaPM</b> · Versão ${VERSAO}</p><button class="p s" onclick="S.aj=false;atualizar()">Atualizar escala agora</button>
+    <button class="p" onclick="zap('Olá! Tenho uma dúvida ou sugestão sobre o EscalaPM: ')">Falar com o desenvolvedor (WhatsApp)</button><button class="p s" onclick="reportarProblema()">Reportar um problema</button><p>Aplicativo não oficial. Confira sempre a escala original.</p></div>`;
+  if(S.pelv&&pelP){A.innerHTML=telaPelotao(pelP,y,mo,nd,dt);return}
   if(S.full||S.cid){
     const cidF=S.cid?CID.find(x=>x.k===S.cid):CID.find(x=>x.n===(Md&&Md.cidade||ult&&ult.cidade));
     const btnF=cidF&&cidF.c&&Md?`<button class="po" onclick="abrirOps('d','${cidF.k}',${S.sel})">Verificar operações do dia</button>`:"";
@@ -434,14 +479,14 @@ function desenharBase(){
     const voltar=S.cid?`<button class="voltar" onclick="trocar()">‹ Trocar cidade</button>`:`<button class="voltar" onclick="S.full=false;desenhar()">‹ Voltar</button>`;
     const corpo=!Md&&S.carregando&&!k.length?`<p>Carregando a escala…</p>`:escalaDoDia(Md,S.sel-1);
     const atual=S.cid?`<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div>`:"";
-    A.innerHTML=`<div class="fulltop">${voltar}<div class="marca">ESCALAPM</div><h1>Escala completa</h1><div class="sub">${esc(nomeF)}</div>${atual}</div>${erroHtml()}
-    <div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}${btnF}</div>
-    <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel,true)}</div></div>${S.cid?`<p class="info" style="text-align:center">Aplicativo não oficial. Confira sempre a escala original.</p>`:""}`;return}
+    A.innerHTML=`<div class="fulltop"><div class="top">${voltar}${S.cid?`<button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button>`:""}</div><div class="marca">ESCALAPM</div><h1>Escala completa</h1><div class="sub">${esc(nomeF)}</div>${atual}</div>${erroHtml()}
+    ${S.aj&&S.cid?painelCid:`<div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}${btnF}${pelBtn}</div>
+    <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel,true)}</div></div>`}${S.cid?`<p class="info" style="text-align:center">Aplicativo não oficial. Confira sempre a escala original.</p>`:""}`;return}
   A.innerHTML=`<header><div class="top"><div class="marca">ESCALAPM</div><button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button></div><h1>${esc(ref?ref.nome:"Carregando…")}</h1><div class="sub">${esc(ref?ref.grad+" · ":"")}PM ${fmtPm(S.pm)}</div>${ref&&ref.cidade?`<div class="sub" style="margin-top:6px">${esc(ref.cidade)}</div>`:""}<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div></header>
     ${erroHtml()}${S.aj?painel:`<div class="main-grid">${cardSelecionado}
     <div class="cart calendar-card"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}${M&&M.previa?" (prévia)":""}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel)}
     <div class="leg"><span><s class="d"></s>Dia</span><span><s class="n"></s>Noite</span><span><s class="f"></s>Folga</span><span><s class="o"></s>Outros</span><span>• nota</span><span>Segure um dia: compromisso</span></div></div>
-    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${cardProximo()}${cardBH(ref)}</div>`}`;
+    <button class="p s full-button" onclick="S.full=true;desenhar()">Ver escala completa${ult&&ult.cidade?" de "+esc(ult.cidade):""}</button>${pelBtn}${cardProximo()}${cardBH(ref)}</div>`}`;
 }
 
 // ===== OPERAÇÕES (planilha pública, uma aba por cidade/mês) =====
