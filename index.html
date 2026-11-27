@@ -106,6 +106,9 @@ button.gerar.desm{border-color:#9AA3B2;color:var(--su);font-weight:500}
 button.c{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .mod input.t2,.mod textarea.t2{width:100%;padding:10px;border:1.5px solid #c8cedb;border-radius:10px;font:inherit;font-size:16px;margin-top:4px}
 .pelcol{padding:0 4px}.pelcol .pelc{margin:0 0 14px}.pelcol>small{display:block;margin:6px 0 2px}
+.duo{display:flex;gap:8px}.duo .po{flex:1}
+.mod details{border:1.5px solid #dfe4ee;border-radius:12px;padding:10px 12px;margin:8px 0}.mod summary{cursor:pointer;font-size:14px}
+.cpr{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #e3e7f0;font-size:14px}.cpr b{white-space:nowrap;color:var(--az)}.cpr:last-child{border:0}
 </style>
 </head>
 <body><div class="w" id="app"></div>
@@ -310,8 +313,42 @@ function entrar(){
     if(v.length<6||v.length>7){S.rep=1;S.erro="Digite o número PM com 7 dígitos ou o nome da cidade.";desenhar();return}
     S.pm=v;S.cid="";gravar("pm",v);gravar("cid","")}
   S.meses={};S.bh=null;gravar("bh",null);S.erro="";S.vis=null;S.sel=null;S.full=false;S.pelv=false;S.pel=null;S.ent="";gravar("meses",{});atualizar()}
-function trocar(){S.pelv=false;S.pel=null;S.rep=0;S.mud=[];gravar("mud",[]);if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
+function trocar(){S.cp=null;S.pelv=false;S.pel=null;S.rep=0;S.mud=[];gravar("mud",[]);if(S.pm&&!confirm("Alterar militar? Você voltará à tela inicial."))return;
   S.pm="";S.cid="";S.meses={};S.bh=null;gravar("bh",null);S.aj=false;S.full=false;S.op=null;S.vis=null;S.sel=null;S.erro="";S.ent="";gravar("pm","");gravar("cid","");gravar("meses",{});desenhar()}
+// ===== CARTÃO PROGRAMA (só login por cidade; planilha própria, só horário e local) =====
+const CP_ID="1vSWPiQnc7L2cD_RC4Hse6pI2HPWNQPrkH-gsQ7FruRo";let CPID=0;
+function cpHora(t){const s=String(t||"").trim(),m=/(\d{1,2}):(\d{2})/.exec(s)||/^(\d{1,2})\s*h\s*(\d{2})?/i.exec(s);return m?p2(+m[1])+":"+p2(+(m[2]||0)):null}
+// A planilha tem vários quadros por aba (dias/turnos). Lê colunas B, C (horário) e D (local) e agrupa cada quadro pelo título.
+function parseCartao(rows){
+  const blocos=[];let per="",sub="",svc="",atual=null;
+  for(const r of rows){const a=String(r[0]||"").trim(),h1=cpHora(r[1]),h2=cpHora(r[2]),d=String(r[3]||"").replace(/\s*\n\s*/g," ").trim();
+    if(h1&&h2&&d){if(!atual){atual={per,sub,svc,o:false,l:[]};blocos.push(atual)}atual.l.push({i:h1,f:h2,d});continue}
+    const n=norm(a);if(!n||n==="_")continue;
+    if(/^PERIODO/.test(n)){per=a.replace(/^per[ií]odo de validade\s*:?\s*/i,"").replace(/\s+/g," ").trim();sub="";atual=null}
+    else if(/^SETOR/.test(n)&&/ MES DE /.test(" "+n+" ")){per=a.replace(/^setor\s*:?\s*/i,"").replace(/\s+/g," ").trim();sub="";atual=null}
+    else if(/^SERVICO/.test(n)&&a.includes("(")){svc=a.replace(/^servi[cç]o\s*:?\s*/i,"").replace(/\s+/g," ").trim();atual=null}
+    else if(/^(RADIO|MOTO|CICLO)?PATRULHAMENTO\b/.test(n)){sub=a.replace(/\s+/g," ").trim();atual=null}
+  }
+  return blocos}
+async function baixarCp(cid){
+  const base=`https://sheets.googleapis.com/v4/spreadsheets/${CP_ID}`;
+  const abas=(await api(`${base}?fields=sheets.properties(title,hidden)&key=${CHAVE_API}`)).sheets.map(x=>x.properties).filter(q=>!q.hidden&&cidades(q.title).some(c=>c.k===cid.k));
+  if(!abas.length)throw new Error("Não encontrei o cartão programa de "+cid.n+" na planilha.");
+  let blocos=[];for(const q of abas){const v=await api(`${base}/values/${encodeURIComponent("'"+q.title.replace(/'/g,"''")+"'!A1:D300")}?valueRenderOption=FORMATTED_VALUE&key=${CHAVE_API}`);blocos=blocos.concat(parseCartao(v.values||[]))}
+  if(!blocos.length)throw new Error("O cartão programa de "+cid.n+" está sem horários na planilha.");
+  return blocos}
+async function abrirCp(){const cid=CID.find(c=>c.k===S.cid);if(!cid)return;const id=++CPID;
+  S.cp={id,cidade:cid.n,carregando:true,erro:"",b:[],salvo:0};desenhar();
+  try{const b=await baixarCp(cid);if(!S.cp||S.cp.id!==id)return;S.cp.b=b;const sv=ler("cpc",{});sv[cid.k]={em:Date.now(),b};gravar("cpc",sv)}
+  catch(e){if(!S.cp||S.cp.id!==id)return;const sv=ler("cpc",{})[cid.k];
+    if(sv&&sv.b&&sv.b.length){S.cp.b=sv.b;S.cp.salvo=sv.em}else S.cp.erro=/^Não encontrei|sem horários/.test(e.message)?e.message:"Não consegui carregar o cartão programa. Verifique a internet e tente de novo."}
+  S.cp.carregando=false;if(S.cp.b.length===1)S.cp.b[0].o=true;desenhar()}
+function fecharCp(){CPID++;S.cp=null;desenhar()}
+function modalCp(){const o=S.cp;if(!o)return"";let corpo;
+  if(o.carregando)corpo=`<div class="spin"></div><p class="sub2">Consultando a planilha do cartão programa…</p>`;
+  else if(o.erro)corpo=`<p style="color:#B3261E">${esc(o.erro)}</p>`;
+  else corpo=(o.salvo?`<p class="sub2">Sem internet: mostrando os dados salvos em ${new Date(o.salvo).toLocaleDateString("pt-BR")}.</p>`:"")+o.b.map((b,i)=>`<details ${b.o?"open":""} ontoggle="S.cp.b[${i}].o=this.open"><summary><b>${esc(b.per?"Validade: "+b.per:"Cartão programa")}</b>${b.svc?"<br>"+esc(b.svc):""}${b.sub?"<br>"+esc(b.sub):""}<br><small>${b.l[0].i} às ${b.l[b.l.length-1].f}</small></summary>${b.l.map(x=>`<div class="cpr"><b>${x.i} – ${x.f}</b><span>${esc(x.d)}</span></div>`).join("")}</details>`).join("");
+  return`<div class="mod" onclick="if(event.target===this)fecharCp()"><div role="dialog" aria-modal="true"><h3>Cartão programa · ${esc(o.cidade)}</h3><div class="sub2">Horário e local de emprego</div>${corpo}<button class="p" onclick="fecharCp()">Fechar</button></div></div>`}
 // ===== PELOTÃO =====
 // Comandantes de pelotão (identificados pelo posto "TEN" + nome na escala)
 const CMT=[{p:3,n:"BINA"},{p:4,n:"MARCELO"}];
@@ -480,7 +517,7 @@ function desenharBase(){
     const corpo=!Md&&S.carregando&&!k.length?`<p>Carregando a escala…</p>`:escalaDoDia(Md,S.sel-1);
     const atual=S.cid?`<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div>`:"";
     A.innerHTML=`<div class="fulltop"><div class="top">${voltar}${S.cid?`<button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button>`:""}</div><div class="marca">ESCALAPM</div><h1>Escala completa</h1><div class="sub">${esc(nomeF)}</div>${atual}</div>${erroHtml()}
-    ${S.aj&&S.cid?painelCid:`<div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}${btnF}${pelBtn}</div>
+    ${S.aj&&S.cid?painelCid:`<div class="full-layout"><div class="roster"><small>TURNO DO DIA ${p2(S.sel)}/${p2(mo)}</small><h3>${dt(S.sel)}</h3>${corpo}${S.cid?`<div class="duo">${btnF}<button class="po" onclick="abrirCp()">Cartão programa</button></div>`:btnF}${pelBtn}</div>
     <div class="cart fullcal"><div class="mes"><button onclick="mover(-1)" aria-label="Mês anterior">‹</button><b>${MESES[mo-1]} de ${y}</b><button onclick="mover(1)" aria-label="Próximo mês">›</button></div>${calendario(M,y,mo,nd,S.sel,true)}</div></div>`}${S.cid?`<p class="info" style="text-align:center">Aplicativo não oficial. Confira sempre a escala original.</p>`:""}`;return}
   A.innerHTML=`<header><div class="top"><div class="marca">ESCALAPM</div><button class="link" onclick="ajustes()">${S.aj?"Fechar":"Ajustes"}</button></div><h1>${esc(ref?ref.nome:"Carregando…")}</h1><div class="sub">${esc(ref?ref.grad+" · ":"")}PM ${fmtPm(S.pm)}</div>${ref&&ref.cidade?`<div class="sub" style="margin-top:6px">${esc(ref.cidade)}</div>`:""}<div class="upd">${S.msg||(upd?`Atualizado em ${p2(upd.getDate())}/${p2(upd.getMonth()+1)} às ${p2(upd.getHours())}:${p2(upd.getMinutes())}`:"Ainda não atualizado")}</div></header>
     ${erroHtml()}${S.aj?painel:`<div class="main-grid">${cardSelecionado}
@@ -690,11 +727,11 @@ function preCarregar(){
   const y=Math.floor(S.vis/100),mo=S.vis%100,ch=`${cid.k}|${y}|${mo}`;
   if(PRE[ch]&&Date.now()-PRE[ch]<TTL_FALHA)return;PRE[ch]=Date.now();
   obterLinhasOperacoes(cid,y,mo).catch(()=>{})}
-function desenhar(){desenharBase();if(S.evf)document.getElementById("app").insertAdjacentHTML("beforeend",modalEv());if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());preCarregar()}
+function desenhar(){desenharBase();if(S.evf)document.getElementById("app").insertAdjacentHTML("beforeend",modalEv());if(S.op)document.getElementById("app").insertAdjacentHTML("beforeend",modalOps());if(S.cp)document.getElementById("app").insertAdjacentHTML("beforeend",modalCp());preCarregar()}
 
 // ===== INÍCIO =====
 document.getElementById("icone").href = "./logo.png";
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.op)fecharOps()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.cp)fecharCp();else if(e.key==="Escape"&&S.op)fecharOps()});
 desenhar();atualizar();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-S.ult>5*60*1000)atualizar()});
 window.addEventListener("focus",()=>{if(Date.now()-S.ult>5*60*1000)atualizar()});
